@@ -1,0 +1,53 @@
+# ── SIGIPLAN · stack de producción (app + base de datos, aislado) ─────────────
+# El reverse proxy compartido es el nginx de Cívica, que alcanza esta app por la
+# red externa "web". Mongo queda en la red privada "internal" (sin exponer).
+name: sigiplan
+
+services:
+  app:
+    build: .
+    container_name: sigiplan_app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      FLASK_ENV: prod
+      MONGODB_DB: ${MONGODB_DB:-sigiplan}
+      # Cadena de conexión construida con las credenciales del root de Mongo.
+      MONGODB_HOST: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/${MONGODB_DB:-sigiplan}?authSource=admin
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      # Persistencia de los archivos subidos (adjuntos de iniciativas)
+      - uploads:/app/app/static/uploads
+    networks:
+      - internal   # acceso privado a Mongo
+      - web        # alcanzable SOLO por el nginx compartido (no publica puertos)
+
+  mongo:
+    image: mongo:7
+    container_name: sigiplan_mongo
+    restart: unless-stopped
+    # Limita la caché de WiredTiger para no ahogar un VPS básico.
+    command: ["--wiredTigerCacheSizeGB", "0.25"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - internal    # NO se publica ningún puerto: inaccesible desde internet
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mongo_data:
+  uploads:
+
+networks:
+  internal:
+  web:
+    external: true   # red compartida con el nginx de Cívica:  docker network create web

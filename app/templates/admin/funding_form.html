@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}SIGIPLAN — {{ 'Nueva Fuente' if action == 'create' else 'Editar Fuente' }}{% endblock %}
+{% block dashboard_title %}{{ 'Nueva Fuente de Financiamiento' if action == 'create' else 'Editar Fuente de Financiamiento' }}{% endblock %}
+{% block dashboard_subtitle %}
+  {% if action == 'create' %}Registra una nueva fuente de presupuesto para {{ current_user.entity.name }}.
+  {% else %}Modifica los datos de <strong>{{ source.code }}</strong>.{% endif %}
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content">
+  <div style="max-width:580px;">
+    <div class="card" style="padding:36px;">
+      <form method="POST">
+
+        <div class="form-group">
+          <label class="form-label" for="name">Nombre de la Fuente <span style="color:var(--color-danger);">*</span></label>
+          <input type="text" id="name" name="name" class="form-control"
+                 value="{{ data.name }}"
+                 placeholder="Ej: Fondo Nacional de Desarrollo Regional (FNDR)" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="code">Código Presupuestario <span style="color:var(--color-danger);">*</span></label>
+          <input type="text" id="code" name="code" class="form-control"
+                 value="{{ data.code }}"
+                 placeholder="Ej: FNDR-2026"
+                 style="text-transform:uppercase;" required>
+          <p style="font-size:0.78rem;color:var(--color-text-muted);margin-top:6px;">
+            Debe ser único dentro de tu entidad. Se guardará en mayúsculas.
+          </p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="total_budget">Presupuesto Total (CLP) <span style="color:var(--color-danger);">*</span></label>
+          <input type="text" id="total_budget" name="total_budget" class="form-control"
+                 value="{{ data.total_budget }}"
+                 placeholder="Ej: 850000000" required>
+          <p style="font-size:0.78rem;color:var(--color-text-muted);margin-top:6px;">
+            Ingresa el monto en pesos chilenos sin puntos ni comas.
+          </p>
+        </div>
+
+        {% if action == 'edit' %}
+          <div style="padding:14px 16px;background:var(--color-bg-base);border-radius:var(--border-radius-md);border:1px solid var(--color-border);margin-bottom:20px;">
+            <div style="font-size:0.78rem;color:var(--color-text-muted);">
+              <i class="fa-solid fa-circle-info" style="margin-right:6px;color:var(--color-info);"></i>
+              El presupuesto asignado (<strong>${{ "{:,.0f}".format(source.allocated_budget) }}</strong>) es gestionado
+              automáticamente por las iniciativas vinculadas a esta fuente.
+            </div>
+          </div>
+        {% endif %}
+
+        <div style="display:flex;gap:12px;justify-content:flex-end;padding-top:20px;border-top:1px solid var(--color-border);">
+          <a href="{{ url_for('admin.funding') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-arrow-left" style="margin-right:6px;"></i> Cancelar
+          </a>
+          <button type="submit" class="btn btn-primary">
+            {% if action == 'create' %}<i class="fa-solid fa-plus" style="margin-right:6px;"></i> Crear Fuente
+            {% else %}<i class="fa-solid fa-floppy-disk" style="margin-right:6px;"></i> Guardar Cambios{% endif %}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

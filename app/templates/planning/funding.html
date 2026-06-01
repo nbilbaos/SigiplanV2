@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}SIGIPLAN — Financiamiento{% endblock %}
+{% block dashboard_title %}Fuentes de Financiamiento{% endblock %}
+{% block dashboard_subtitle %}Presupuesto disponible para asignar a las iniciativas de la cartera.{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content">
+
+  <!-- Resumen global -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:24px;">
+    <div class="card" style="padding:22px;">
+      <div style="font-size:0.73rem;font-weight:700;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:8px;">Presupuesto Total</div>
+      <div style="font-size:1.5rem;font-weight:800;color:var(--color-info);">${{ "{:,.0f}".format(total_budget) }}</div>
+    </div>
+    <div class="card" style="padding:22px;">
+      <div style="font-size:0.73rem;font-weight:700;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:8px;">Asignado</div>
+      <div style="font-size:1.5rem;font-weight:800;color:var(--color-warning);">${{ "{:,.0f}".format(total_allocated) }}</div>
+    </div>
+    <div class="card" style="padding:22px;">
+      <div style="font-size:0.73rem;font-weight:700;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:8px;">Disponible</div>
+      <div style="font-size:1.5rem;font-weight:800;color:#3b6347;">${{ "{:,.0f}".format([total_budget - total_allocated, 0]|max) }}</div>
+    </div>
+  </div>
+
+  <div style="padding:12px 16px;background:var(--color-tertiary-light);border-radius:var(--border-radius-md);margin-bottom:20px;font-size:0.8rem;color:var(--color-tertiary);">
+    <i class="fa-solid fa-circle-info" style="margin-right:6px;"></i>
+    Las fuentes de financiamiento las crea y administra el Administrador de la entidad. Aquí las consultas y las asignas a tus iniciativas.
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden;">
+    {% if sources %}
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+          <thead>
+            <tr style="background:var(--color-bg-base);">
+              <th style="padding:13px 20px;text-align:left;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;">Fuente</th>
+              <th style="padding:13px 16px;text-align:right;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;">Total</th>
+              <th style="padding:13px 16px;text-align:right;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;">Disponible</th>
+              <th style="padding:13px 16px;text-align:left;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;width:180px;">Uso</th>
+              <th style="padding:13px 16px;text-align:center;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;">Iniciativas</th>
+              <th style="padding:13px 16px;text-align:center;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in sources %}
+              <tr style="border-top:1px solid var(--color-border);">
+                <td style="padding:14px 20px;">
+                  <div style="font-weight:800;color:var(--color-primary);font-size:0.8rem;">{{ s.code }}</div>
+                  <div style="font-size:0.82rem;color:var(--color-text-muted);max-width:240px;">{{ s.name }}</div>
+                </td>
+                <td style="padding:14px 16px;text-align:right;font-weight:700;white-space:nowrap;">${{ "{:,.0f}".format(s.total_budget) }}</td>
+                <td style="padding:14px 16px;text-align:right;font-weight:700;white-space:nowrap;color:#3b6347;">${{ "{:,.0f}".format(s.remaining_budget) }}</td>
+                <td style="padding:14px 16px;">
+                  {% set pct = ((s.allocated_budget / s.total_budget) * 100)|int if s.total_budget > 0 else 0 %}
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="flex:1;background:var(--color-bg-base);border-radius:20px;height:7px;overflow:hidden;">
+                      <div style="height:100%;border-radius:20px;width:{{ [pct,100]|min }}%;background:{% if pct > 90 %}var(--color-danger){% elif pct > 70 %}var(--color-warning){% else %}var(--color-primary){% endif %};"></div>
+                    </div>
+                    <span style="font-size:0.76rem;font-weight:700;color:var(--color-text-muted);width:34px;text-align:right;">{{ pct }}%</span>
+                  </div>
+                </td>
+                <td style="padding:14px 16px;text-align:center;font-weight:700;">{{ usage.get(s.id|string, 0) }}</td>
+                <td style="padding:14px 16px;text-align:center;">
+                  {% if s.is_active %}
+                    <span style="font-size:0.78rem;font-weight:700;color:var(--color-success);">Activa</span>
+                  {% else %}
+                    <span style="font-size:0.78rem;font-weight:700;color:var(--color-text-muted);">Inactiva</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div style="padding:60px 24px;text-align:center;color:var(--color-text-muted);">
+        <i class="fa-solid fa-money-bill-wave" style="font-size:2.5rem;opacity:0.3;display:block;margin-bottom:16px;"></i>
+        <p style="font-style:italic;">No hay fuentes de financiamiento registradas en la entidad.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

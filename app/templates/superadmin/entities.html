@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}SIGIPLAN — Gestión de Entidades{% endblock %}
+
+{% block dashboard_title %}Gestión de Entidades{% endblock %}
+{% block dashboard_subtitle %}Administra las entidades gubernamentales registradas en la plataforma.{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content">
+
+  <!-- Barra de acciones -->
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <span style="font-size: 0.9rem; color: var(--color-text-muted);">
+      <strong style="color: var(--color-text-dark);">{{ entities_stats | length }}</strong> entidad{{ 'es' if entities_stats | length != 1 else '' }} registrada{{ 's' if entities_stats | length != 1 else '' }}
+    </span>
+    <a href="{{ url_for('superadmin.entity_create') }}" class="btn btn-primary btn-sm">
+      <i class="fa-solid fa-plus" style="margin-right: 6px;"></i> Nueva Entidad
+    </a>
+  </div>
+
+  <!-- Tabla de entidades -->
+  <div class="card" style="padding: 0; overflow: hidden;">
+    {% if entities_stats %}
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+          <thead>
+            <tr style="background: var(--color-bg-base);">
+              <th style="padding: 14px 20px; text-align: left; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Entidad</th>
+              <th style="padding: 14px 16px; text-align: left; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Dirección</th>
+              <th style="padding: 14px 16px; text-align: center; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Plan</th>
+              <th style="padding: 14px 16px; text-align: center; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Usuarios</th>
+              <th style="padding: 14px 16px; text-align: center; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Iniciativas</th>
+              <th style="padding: 14px 16px; text-align: center; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Estado</th>
+              <th style="padding: 14px 16px; text-align: right; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in entities_stats %}
+              <tr style="border-top: 1px solid var(--color-border);" onmouseover="this.style.background='var(--color-bg-base)'" onmouseout="this.style.background=''">
+
+                <td style="padding: 16px 20px;">
+                  <div style="font-weight: 700; color: var(--color-text-dark);">{{ row.entity.name }}</div>
+                  <div style="font-size: 0.78rem; color: var(--color-text-muted); margin-top: 2px;">
+                    <i class="fa-solid fa-id-card" style="margin-right: 4px; opacity: 0.6;"></i>{{ row.entity.tax_id }}
+                  </div>
+                </td>
+
+                <td style="padding: 16px 16px; color: var(--color-text-muted); font-size: 0.85rem; max-width: 200px;">
+                  {{ row.entity.address or '—' }}
+                </td>
+
+                <td style="padding: 16px 16px; text-align: center;">
+                  <span style="
+                    display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+                    {% if row.entity.subscription_plan == 'Enterprise' %}background: rgba(112,92,48,0.12); color: var(--color-tertiary);
+                    {% elif row.entity.subscription_plan == 'Premium' %}background: var(--color-primary-light); color: var(--color-primary);
+                    {% else %}background: rgba(46,50,48,0.08); color: var(--color-text-muted);{% endif %}
+                  ">{{ row.entity.subscription_plan }}</span>
+                </td>
+
+                <td style="padding: 16px 16px; text-align: center; font-weight: 700; font-size: 1rem;">
+                  {{ row.users_count }}
+                </td>
+
+                <td style="padding: 16px 16px; text-align: center; font-weight: 700; font-size: 1rem;">
+                  {{ row.initiatives_count }}
+                </td>
+
+                <td style="padding: 16px 16px; text-align: center;">
+                  {% if row.entity.is_active %}
+                    <span style="display:inline-flex; align-items:center; gap:5px; font-size:0.8rem; font-weight:700; color:var(--color-success);">
+                      <span style="width:8px;height:8px;background:var(--color-success);border-radius:50%;"></span> Activa
+                    </span>
+                  {% else %}
+                    <span style="display:inline-flex; align-items:center; gap:5px; font-size:0.8rem; font-weight:700; color:var(--color-danger);">
+                      <span style="width:8px;height:8px;background:var(--color-danger);border-radius:50%;"></span> Inactiva
+                    </span>
+                  {% endif %}
+                </td>
+
+                <td style="padding: 16px 16px; text-align: right;">
+                  <div style="display: inline-flex; gap: 8px; align-items: center;">
+                    <a href="{{ url_for('superadmin.entity_edit', entity_id=row.entity.id | string) }}"
+                       class="btn btn-secondary btn-sm"
+                       style="padding: 5px 12px; font-size: 0.78rem;">
+                      <i class="fa-solid fa-pen-to-square" style="margin-right: 4px;"></i> Editar
+                    </a>
+                    <form method="POST"
+                          action="{{ url_for('superadmin.entity_toggle', entity_id=row.entity.id | string) }}"
+                          onsubmit="return confirm('¿Confirmar {{ 'desactivar' if row.entity.is_active else 'activar' }} la entidad {{ row.entity.name }}?')">
+                      <button type="submit" class="btn btn-sm"
+                              style="padding: 5px 12px; font-size: 0.78rem;
+                              {% if row.entity.is_active %}
+                                background: rgba(176,92,74,0.1); color: var(--color-danger); border: 1px solid rgba(176,92,74,0.2);
+                              {% else %}
+                                background: var(--color-primary-light); color: var(--color-primary); border: 1px solid rgba(74,124,89,0.2);
+                              {% endif %}">
+                        {% if row.entity.is_active %}
+                          <i class="fa-solid fa-ban" style="margin-right: 4px;"></i> Desactivar
+                        {% else %}
+                          <i class="fa-solid fa-circle-check" style="margin-right: 4px;"></i> Activar
+                        {% endif %}
+                      </button>
+                    </form>
+                  </div>
+                </td>
+
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div style="padding: 60px 24px; text-align: center; color: var(--color-text-muted);">
+        <i class="fa-solid fa-building-circle-exclamation" style="font-size: 2.5rem; opacity: 0.3; display: block; margin-bottom: 16px;"></i>
+        <p style="font-size: 1rem; font-style: italic; margin-bottom: 20px;">No hay entidades registradas en la plataforma.</p>
+        <a href="{{ url_for('superadmin.entity_create') }}" class="btn btn-primary btn-sm">
+          <i class="fa-solid fa-plus" style="margin-right: 6px;"></i> Crear la Primera Entidad
+        </a>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

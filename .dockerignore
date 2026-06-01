@@ -1,0 +1,28 @@
+# Control de versiones y entorno
+.git
+.gitignore
+.env
+.env.*
+!.env.prod.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Datos locales que NO deben entrar a la imagen
+app/static/uploads/*
+!app/static/uploads/.gitkeep
+
+# Herramientas y docs de desarrollo
+.claude/
+.agents/
+*.md
+seed.py
+
+# Sistema
+.DS_Store
+Thumbs.db

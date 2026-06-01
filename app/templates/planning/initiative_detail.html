@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block title %}SIGIPLAN — {{ init.code }}{% endblock %}
+{% block dashboard_title %}{{ init.code }}{% endblock %}
+{% block dashboard_subtitle %}{{ init.title }}{% endblock %}
+
+{% block dashboard_content %}
+
+{% set action_meta = {
+  'CREATE':            ('Creación',           '#4a7c59', 'rgba(74,124,89,0.12)',  'fa-plus-circle'),
+  'UPDATE':            ('Actualización',      '#4a6c7c', 'rgba(74,108,124,0.12)', 'fa-pen'),
+  'SUBMIT_FOR_REVIEW': ('Enviado a Revisión', '#c2953b', 'rgba(194,149,59,0.12)', 'fa-paper-plane'),
+  'APPROVE':           ('Aprobación',         '#3b6347', 'rgba(59,99,71,0.12)',   'fa-circle-check'),
+  'REJECT':            ('Rechazo',            '#b05c4a', 'rgba(176,92,74,0.12)',  'fa-circle-xmark'),
+  'SOFT_DELETE':       ('Eliminación',        '#b05c4a', 'rgba(176,92,74,0.12)',  'fa-trash'),
+  'RESTORE':           ('Restauración',       '#4a6c7c', 'rgba(74,108,124,0.12)', 'fa-rotate-left')
+} %}
+
+<div class="dashboard-content">
+
+  <!-- Barra superior: volver + estado + acciones -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+    <a href="{{ url_for('planning.initiatives') }}" style="font-size:0.85rem;color:var(--color-text-muted);text-decoration:none;">
+      <i class="fa-solid fa-arrow-left" style="margin-right:6px;"></i> Volver a la cartera
+    </a>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="badge {% if init.status == 'DRAFT' %}badge-draft{% elif init.status == 'IN_PROGRESS' %}badge-progress{% elif init.status == 'UNDER_REVIEW' %}badge-review{% elif init.status == 'APPROVED' %}badge-approved{% elif init.status == 'REJECTED' %}badge-rejected{% else %}badge-draft{% endif %}" style="font-size:0.78rem;padding:6px 14px;">
+        {{ init.get_status_display() }}
+      </span>
+      {% if can_manage and init.status in ['DRAFT','IN_PROGRESS','REJECTED'] %}
+        <a href="{{ url_for('planning.initiative_edit', initiative_id=init.id|string) }}" class="btn btn-secondary btn-sm">
+          <i class="fa-solid fa-pen-to-square" style="margin-right:6px;"></i> Editar
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:start;">
+
+    <!-- Columna izquierda -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <!-- Descripción -->
+      <div class="card" style="padding:28px;">
+        <h3 style="font-size:0.9rem;font-weight:700;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px;">
+          <i class="fa-solid fa-align-left" style="margin-right:6px;"></i> Descripción
+        </h3>
+        <p style="line-height:1.7;color:var(--color-text-dark);">{{ init.description }}</p>
+      </div>
+
+      <!-- Acciones de flujo (solo director) -->
+      {% if can_manage %}
+        <div class="card" style="padding:24px 28px;">
+          <h3 style="font-size:0.9rem;font-weight:700;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:16px;">
+            <i class="fa-solid fa-diagram-project" style="margin-right:6px;"></i> Flujo de la Iniciativa
+          </h3>
+
+          {% if init.status == 'DRAFT' %}
+            <p style="font-size:0.85rem;color:var(--color-text-muted);margin-bottom:14px;">La iniciativa está en borrador. Actívala para que el equipo comience la formulación técnica.</p>
+            <form method="POST" action="{{ url_for('planning.initiative_activate', initiative_id=init.id|string) }}">
+              <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-play" style="margin-right:6px;"></i> Activar formulación
+              </button>
+            </form>
+
+          {% elif init.status == 'IN_PROGRESS' %}
+            <p style="font-size:0.85rem;color:var(--color-text-muted);">En formulación técnica. El Coordinador la enviará a revisión cuando esté lista.</p>
+
+          {% elif init.status == 'UNDER_REVIEW' %}
+            <p style="font-size:0.85rem;color:var(--color-text-muted);margin-bottom:16px;">Esta iniciativa espera tu decisión.</p>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+              <!-- Aprobar -->
+              <form method="POST" action="{{ url_for('planning.initiative_approve', initiative_id=init.id|string) }}" style="flex:1;min-width:240px;">
+                <textarea name="comment" class="form-control" rows="2" placeholder="Comentario de aprobación (opcional)" style="margin-bottom:10px;"></textarea>
+                <button type="submit" class="btn btn-primary btn-sm" style="width:100%;background:#3b6347;">
+                  <i class="fa-solid fa-circle-check" style="margin-right:6px;"></i> Aprobar
+                </button>
+              </form>
+              <!-- Rechazar -->
+              <form method="POST" action="{{ url_for('planning.initiative_reject', initiative_id=init.id|string) }}" style="flex:1;min-width:240px;">
+                <textarea name="comment" class="form-control" rows="2" placeholder="Observaciones del rechazo (obligatorio)" required style="margin-bottom:10px;"></textarea>
+                <button type="submit" class="btn btn-sm" style="width:100%;background:rgba(176,92,74,0.12);color:var(--color-danger);border:1px solid rgba(176,92,74,0.25);">
+                  <i class="fa-solid fa-circle-xmark" style="margin-right:6px;"></i> Devolver con observaciones
+                </button>
+              </form>
+            </div>
+
+          {% elif init.status == 'APPROVED' %}
+            <p style="font-size:0.85rem;color:var(--color-text-muted);margin-bottom:14px;">Iniciativa aprobada. Puedes archivarla una vez finalizada.</p>
+            <form method="POST" action="{{ url_for('planning.initiative_archive', initiative_id=init.id|string) }}">
+              <button type="submit" class="btn btn-secondary btn-sm">
+                <i class="fa-solid fa-box-archive" style="margin-right:6px;"></i> Archivar
+              </button>
+            </form>
+
+          {% elif init.status == 'REJECTED' %}
+            <p style="font-size:0.85rem;color:var(--color-danger);margin-bottom:14px;">
+              <i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>
+              Devuelta con observaciones. Edítala y coordina las correcciones con el equipo.
+            </p>
+
+          {% elif init.status == 'ARCHIVED' %}
+            <p style="font-size:0.85rem;color:var(--color-text-muted);">Iniciativa archivada.</p>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      <!-- Bitácora de auditoría -->
+      <div class="card" style="padding:28px;">
+        <h3 style="font-size:0.9rem;font-weight:700;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:20px;">
+          <i class="fa-solid fa-clock-rotate-left" style="margin-right:6px;"></i> Bitácora de Auditoría
+        </h3>
+        {% if trail %}
+          <div style="position:relative;padding-left:8px;">
+            {% for e in trail %}
+              {% set meta = action_meta.get(e.action, ('Acción','var(--color-text-muted)','rgba(46,50,48,0.08)','fa-circle')) %}
+              <div style="display:flex;gap:14px;padding-bottom:{{ '0' if loop.last else '20px' }};">
+                <div style="display:flex;flex-direction:column;align-items:center;">
+                  <span style="width:32px;height:32px;border-radius:50%;background:{{ meta[2] }};color:{{ meta[1] }};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <i class="fa-solid {{ meta[3] }}" style="font-size:0.8rem;"></i>
+                  </span>
+                  {% if not loop.last %}<span style="flex:1;width:2px;background:var(--color-border);margin-top:4px;"></span>{% endif %}
+                </div>
+                <div style="flex:1;padding-bottom:4px;">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-weight:700;font-size:0.85rem;color:{{ meta[1] }};">{{ meta[0] }}</span>
+                    <span style="font-size:0.76rem;color:var(--color-text-muted);">{{ e.timestamp.strftime('%d/%m/%Y %H:%M') }}</span>
+                  </div>
+                  {% if e.user %}
+                    <div style="font-size:0.78rem;color:var(--color-text-muted);">por {{ e.user.full_name }}</div>
+                  {% endif %}
+                  {% if e.details %}
+                    <div style="font-size:0.85rem;margin-top:4px;color:var(--color-text-dark);">{{ e.details }}</div>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p style="font-style:italic;color:var(--color-text-muted);font-size:0.85rem;">Sin registros de actividad.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Columna derecha: metadatos -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+
+      <div class="card" style="padding:24px;">
+        <h3 style="font-size:0.85rem;font-weight:700;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:16px;">Detalles</h3>
+
+        <div style="margin-bottom:16px;">
+          <div style="font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:4px;">Costo Estimado</div>
+          <div style="font-weight:800;font-size:1.3rem;color:var(--color-primary);">${{ "{:,.0f}".format(init.estimated_cost or 0) }}</div>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <div style="font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:4px;">Plazo</div>
+          <div style="font-weight:700;font-size:0.9rem;">
+            {% if init.deadline %}{{ init.deadline.strftime('%d/%m/%Y') }}{% else %}<span style="color:var(--color-text-muted);">Sin definir</span>{% endif %}
+          </div>
+        </div>
+
+        <div style="padding-top:14px;border-top:1px solid var(--color-border);">
+          <div style="font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:8px;">Director de Planificación</div>
+          <div style="font-weight:700;font-size:0.88rem;">{{ init.planning_director.full_name if init.planning_director else '— Sin asignar —' }}</div>
+        </div>
+
+        <div style="padding-top:14px;margin-top:14px;border-top:1px solid var(--color-border);">
+          <div style="font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:8px;">Coordinador de Formulación</div>
+          <div style="font-weight:700;font-size:0.88rem;">{{ init.formulation_leader.full_name if init.formulation_leader else '— Sin asignar —' }}</div>
+        </div>
+
+        <div style="padding-top:14px;margin-top:14px;border-top:1px solid var(--color-border);">
+          <div style="font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:8px;">Formuladores Técnicos</div>
+          {% if init.assigned_formulators %}
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              {% for f in init.assigned_formulators %}
+                {% if f %}
+                  <div style="display:flex;align-items:center;gap:8px;font-size:0.85rem;">
+                    <span style="width:26px;height:26px;border-radius:50%;background:var(--color-primary-light);color:var(--color-primary);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.72rem;">{{ f.first_name[0]|upper }}</span>
+                    {{ f.full_name }}
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          {% else %}
+            <div style="font-size:0.85rem;color:var(--color-text-muted);">— Ninguno —</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Fuentes de financiamiento -->
+      <div class="card" style="padding:24px;">
+        <h3 style="font-size:0.85rem;font-weight:700;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px;">Fuentes de Financiamiento</h3>
+        {% if init.funding_sources %}
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            {% for s in init.funding_sources %}
+              {% if s %}
+                <div style="padding:10px 12px;background:var(--color-bg-base);border-radius:var(--border-radius-md);">
+                  <div style="font-weight:700;font-size:0.82rem;">{{ s.code }}</div>
+                  <div style="font-size:0.76rem;color:var(--color-text-muted);">{{ s.name }}</div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% else %}
+          <div style="font-size:0.85rem;color:var(--color-text-muted);font-style:italic;">Sin fuentes asignadas.</div>
+        {% endif %}
+      </div>
+
+      <!-- Zona de borrado lógico -->
+      {% if can_manage %}
+        <div class="card" style="padding:20px 24px;border:1px solid rgba(176,92,74,0.2);">
+          <h3 style="font-size:0.82rem;font-weight:700;color:var(--color-danger);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Zona de Riesgo</h3>
+          <p style="font-size:0.78rem;color:var(--color-text-muted);margin-bottom:12px;">La iniciativa se moverá a la papelera (borrado lógico) y podrá restaurarse después.</p>
+          <form method="POST" action="{{ url_for('planning.initiative_delete', initiative_id=init.id|string) }}"
+                onsubmit="return confirm('¿Mover «{{ init.code }}» a la papelera?')">
+            <button type="submit" class="btn btn-sm" style="width:100%;background:rgba(176,92,74,0.1);color:var(--color-danger);border:1px solid rgba(176,92,74,0.25);">
+              <i class="fa-solid fa-trash-can" style="margin-right:6px;"></i> Mover a la papelera
+            </button>
+          </form>
+        </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}

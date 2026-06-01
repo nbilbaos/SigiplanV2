@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}SIGIPLAN — Perfil de Entidad{% endblock %}
+{% block dashboard_title %}Perfil de la Entidad{% endblock %}
+{% block dashboard_subtitle %}Información registrada de {{ entity.name }}.{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content">
+  <div style="max-width:680px;display:flex;flex-direction:column;gap:20px;">
+
+    <!-- Datos de solo lectura -->
+    <div class="card" style="padding:32px;">
+      <h3 style="font-size:1rem;margin-bottom:20px;display:flex;align-items:center;gap:8px;">
+        <i class="fa-solid fa-building-columns" style="color:var(--color-primary);"></i> Datos Institucionales
+        <span style="font-size:0.72rem;font-weight:600;color:var(--color-text-muted);background:var(--color-bg-base);padding:2px 8px;border-radius:20px;margin-left:4px;">Solo lectura</span>
+      </h3>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div>
+          <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:6px;">Nombre</div>
+          <div style="font-weight:700;font-size:1rem;">{{ entity.name }}</div>
+        </div>
+        <div>
+          <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:6px;">RUT / Tax ID</div>
+          <div style="font-weight:700;font-size:1rem;font-family:monospace;">{{ entity.tax_id }}</div>
+        </div>
+        <div>
+          <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:6px;">Plan de Suscripción</div>
+          <span style="display:inline-block;padding:4px 14px;border-radius:20px;font-size:0.78rem;font-weight:700;text-transform:uppercase;
+            {% if entity.subscription_plan == 'Enterprise' %}background:var(--color-tertiary-light);color:var(--color-tertiary);
+            {% elif entity.subscription_plan == 'Premium' %}background:var(--color-primary-light);color:var(--color-primary);
+            {% else %}background:rgba(46,50,48,0.08);color:var(--color-text-muted);{% endif %}">
+            {{ entity.subscription_plan }}
+          </span>
+        </div>
+        <div>
+          <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:6px;">Estado</div>
+          {% if entity.is_active %}
+            <span style="display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:0.9rem;color:var(--color-success);">
+              <span style="width:8px;height:8px;background:var(--color-success);border-radius:50%;"></span> Activa
+            </span>
+          {% else %}
+            <span style="display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:0.9rem;color:var(--color-danger);">
+              <span style="width:8px;height:8px;background:var(--color-danger);border-radius:50%;"></span> Inactiva
+            </span>
+          {% endif %}
+        </div>
+      </div>
+
+      <p style="font-size:0.78rem;color:var(--color-text-muted);margin-top:20px;padding-top:16px;border-top:1px solid var(--color-border);">
+        <i class="fa-solid fa-lock" style="margin-right:6px;"></i>
+        El nombre, RUT y plan son gestionados por el Super Administrador de la plataforma.
+        Para realizar cambios contáctalo directamente.
+      </p>
+    </div>
+
+    <!-- Dirección editable -->
+    <div class="card" style="padding:32px;">
+      <h3 style="font-size:1rem;margin-bottom:20px;display:flex;align-items:center;gap:8px;">
+        <i class="fa-solid fa-location-dot" style="color:var(--color-primary);"></i> Dirección
+      </h3>
+      <form method="POST" action="{{ url_for('admin.entity_address') }}">
+        <div class="form-group">
+          <label class="form-label" for="address">Dirección de la Entidad</label>
+          <input type="text" id="address" name="address" class="form-control"
+                 value="{{ entity.address or '' }}"
+                 placeholder="Ej: Av. Principal 100, Ciudad">
+        </div>
+        <div style="display:flex;justify-content:flex-end;">
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-floppy-disk" style="margin-right:6px;"></i> Guardar Dirección
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

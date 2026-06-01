@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}SIGIPLAN - Dashboard General{% endblock %}
+
+{% block dashboard_title %}Bienvenido de nuevo, {{ current_user.first_name }}!{% endblock %}
+{% block dashboard_subtitle %}Resumen actual de tu cuenta institucional.{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content">
+
+  <!-- Metrics Grid -->
+  <div class="features-grid" style="margin-bottom: 40px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+    
+    {% if current_user.role == 'SUPER_ADMIN' %}
+      <div class="card" style="padding: 24px;">
+        <h4 style="color: var(--color-text-muted); font-size: 0.85rem; text-transform: uppercase;">Total Entidades</h4>
+        <div style="font-size: 2.5rem; font-weight: 800; color: var(--color-primary); margin-top: 8px;">
+          {{ metrics.entities_count }}
+        </div>
+        <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 8px;">Entidades activas registradas</p>
+      </div>
+      <div class="card" style="padding: 24px;">
+        <h4 style="color: var(--color-text-muted); font-size: 0.85rem; text-transform: uppercase;">Total Usuarios</h4>
+        <div style="font-size: 2.5rem; font-weight: 800; color: var(--color-tertiary); margin-top: 8px;">
+          {{ metrics.users_count }}
+        </div>
+        <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 8px;">Usuarios de plataforma globales</p>
+      </div>
+      
+    {% elif current_user.role == 'ENTITY_ADMIN' %}
+      <div class="card" style="padding: 24px;">
+        <h4 style="color: var(--color-text-muted); font-size: 0.85rem; text-transform: uppercase;">Usuarios Locales</h4>
+        <div style="font-size: 2.5rem; font-weight: 800; color: var(--color-primary); margin-top: 8px;">
+          {{ metrics.users_count }}
+        </div>
+        <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 8px;">Colaboradores en la entidad</p>
+      </div>
+      <div class="card" style="padding: 24px;">
+        <h4 style="color: var(--color-text-muted); font-size: 0.85rem; text-transform: uppercase;">Iniciativas Activas</h4>
+        <div style="font-size: 2.5rem; font-weight: 800; color: var(--color-tertiary); margin-top: 8px;">
+          {{ metrics.initiatives_count }}
+        </div>
+        <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 8px;">Proyectos visibles en flujo</p>
+      </div>
+      <div class="card" style="padding: 24px;">
+        <h4 style="color: var(--color-text-muted); font-size: 0.85rem; text-transform: uppercase;">Papelera (Borradas)</h4>
+        <div style="font-size: 2.5rem; font-weight: 800; color: var(--color-danger); margin-top: 8px;">
+          {{ metrics.deleted_initiatives_count }}
+        </div>
+        <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 8px;">Recuperables por ti</p>
+      </div>
+      
+    {% else %}
+      <div class="card" style="padding: 20px; background-color: var(--color-bg-card);">
+        <h4 style="color: var(--color-text-muted); font-size: 0.8rem; text-transform: uppercase;">Borrador</h4>
+        <div style="font-size: 2rem; font-weight: 800; color: var(--color-text-dark); margin-top: 4px;">
+          {{ metrics.initiatives_draft }}
+        </div>
+      </div>
+      <div class="card" style="padding: 20px; background-color: var(--color-bg-card);">
+        <h4 style="color: var(--color-text-muted); font-size: 0.8rem; text-transform: uppercase;">En Formulación</h4>
+        <div style="font-size: 2rem; font-weight: 800; color: var(--color-primary); margin-top: 4px;">
+          {{ metrics.initiatives_progress }}
+        </div>
+      </div>
+      <div class="card" style="padding: 20px; background-color: var(--color-bg-card);">
+        <h4 style="color: var(--color-text-muted); font-size: 0.8 /rem; text-transform: uppercase;">En Revisión</h4>
+        <div style="font-size: 2rem; font-weight: 800; color: var(--color-tertiary); margin-top: 4px;">
+          {{ metrics.initiatives_review }}
+        </div>
+      </div>
+      <div class="card" style="padding: 20px; background-color: var(--color-bg-card);">
+        <h4 style="color: var(--color-text-muted); font-size: 0.8rem; text-transform: uppercase;">Aprobadas</h4>
+        <div style="font-size: 2rem; font-weight: 800; color: #3b6347; margin-top: 4px;">
+          {{ metrics.initiatives_approved }}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Role Specific Panel Links & Tables -->
+  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 32px; align-items: start;">
+    
+    <!-- Left Column (Tables or main charts) -->
+    <div>
+      {% if current_user.role in ['PLANNING_DIRECTOR', 'FORMULATION_LEADER', 'TECHNICAL_FORMULATOR'] %}
+        <div class="card" style="padding: 24px;">
+          <h3 style="color: var(--color-primary); margin-bottom: 20px;"><i class="fa-solid fa-list-check" style="margin-right: 8px;"></i> Iniciativas Recientes</h3>
+          
+          {% if metrics.recent_initiatives %}
+            <div style="overflow-x: auto;">
+              <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                <thead>
+                  <tr style="border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); font-weight: 700;">
+                    <th style="padding: 12px 8px;">Código</th>
+                    <th style="padding: 12px 8px;">Título</th>
+                    <th style="padding: 12px 8px;">Estado</th>
+                    <th style="padding: 12px 8px;">Última Edición</th>
+                    <th style="padding: 12px 8px;">Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for init in metrics.recent_initiatives %}
+                    <tr style="border-bottom: 1px solid var(--color-border);">
+                      <td style="padding: 12px 8px; font-weight: 700;">{{ init.code }}</td>
+                      <td style="padding: 12px 8px;">{{ init.title }}</td>
+                      <td style="padding: 12px 8px;">
+                        <span class="badge {% if init.status == 'DRAFT' %}badge-draft{% elif init.status == 'IN_PROGRESS' %}badge-progress{% elif init.status == 'UNDER_REVIEW' %}badge-review{% elif init.status == 'APPROVED' %}badge-approved{% else %}badge-rejected{% endif %}">
+                          {{ init.get_status_display() }}
+                        </span>
+                      </td>
+                      <td style="padding: 12px 8px; color: var(--color-text-muted);">{{ init.updated_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                      <td style="padding: 12px 8px;">
+                        <a href="{{ url_for('planning.initiative_detail', initiative_id=init.id | string) }}" class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 0.75rem;">Ver Ficha</a>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p style="color: var(--color-text-muted); font-style: italic;">No hay iniciativas asignadas o creadas recientemente.</p>
+          {% endif %}
+        </div>
+      {% else %}
+        <div class="card" style="padding: 24px;">
+          <h3 style="color: var(--color-primary); margin-bottom: 16px;">Acceso y Control Directo</h3>
+          <p style="color: var(--color-text-muted); margin-bottom: 20px;">Utiliza el menú lateral para gestionar colaboradores, fuentes de financiamiento, el perfil de tu entidad y la bitácora de actividad.</p>
+          <div style="display: flex; gap: 16px;">
+            {% if current_user.role == 'ENTITY_ADMIN' %}
+              <a href="{{ url_for('admin.dashboard') }}" class="btn btn-primary"><i class="fa-solid fa-gauge-high"></i> Panel de Entidad</a>
+              <a href="{{ url_for('admin.users') }}" class="btn btn-secondary"><i class="fa-solid fa-users"></i> Gestionar Usuarios</a>
+            {% else %}
+              <a href="{{ url_for('superadmin.index') }}" class="btn btn-primary"><i class="fa-solid fa-building-flag"></i> Ver Entidades</a>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Right Column (Sidebar or Quick Actions) -->
+    <div>
+      <div class="card" style="padding: 24px; background-color: var(--color-bg-input);">
+        <h3 style="font-size: 1.15rem; color: var(--color-text-dark); margin-bottom: 16px;">Acciones Rápidas</h3>
+        
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          {% if current_user.role == 'PLANNING_DIRECTOR' %}
+            <a href="{{ url_for('planning.create_initiative') }}" class="btn btn-primary btn-sm" style="width: 100%; justify-content: flex-start;">
+              <i class="fa-solid fa-plus" style="margin-right: 8px;"></i> Crear Iniciativa
+            </a>
+            <a href="{{ url_for('planning.funding') }}" class="btn btn-secondary btn-sm" style="width: 100%; justify-content: flex-start;">
+              <i class="fa-solid fa-sack-dollar" style="margin-right: 8px;"></i> Agregar Financiamiento
+            </a>
+            <a href="{{ url_for('planning.org_chart') }}" class="btn btn-secondary btn-sm" style="width: 100%; justify-content: flex-start;">
+              <i class="fa-solid fa-sitemap" style="margin-right: 8px;"></i> Ver Organigrama
+            </a>
+          {% elif current_user.role == 'FORMULATION_LEADER' %}
+            <a href="{{ url_for('formulation.index') }}" class="btn btn-primary btn-sm" style="width: 100%; justify-content: flex-start;">
+              <i class="fa-solid fa-pen-ruler" style="margin-right: 8px;"></i> Mesa de Formulación
+            </a>
+          {% elif current_user.role == 'TECHNICAL_FORMULATOR' %}
+            <a href="{{ url_for('formulation.index') }}" class="btn btn-primary btn-sm" style="width: 100%; justify-content: flex-start;">
+              <i class="fa-solid fa-pen-ruler" style="margin-right: 8px;"></i> Mis Proyectos Asignados
+            </a>
+          {% elif current_user.role == 'ENTITY_ADMIN' %}
+            <a href="{{ url_for('admin.users') }}" class="btn btn-primary btn-sm" style="width: 100%; justify-content: flex-start;">
+              <i class="fa-solid fa-user-plus" style="margin-right: 8px;"></i> Agregar Colaborador
+            </a>
+          {% elif current_user.role == 'SUPER_ADMIN' %}
+            <a href="{{ url_for('superadmin.index') }}" class="btn btn-primary btn-sm" style="width: 100%; justify-content: flex-start;">
+              <i class="fa-solid fa-plus" style="margin-right: 8px;"></i> Crear Nueva Entidad
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

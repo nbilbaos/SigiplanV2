@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}SIGIPLAN - Control de Iniciativas de Inversión{% endblock %}</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="SIGIPLAN: Plataforma inteligente de formulación, financiamiento y control estratégico de iniciativas de inversión pública para entidades gubernamentales.">
+  <meta name="author" content="SIGIPLAN Corp">
+  
+  <!-- Favicon (Earthy style) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌱</text></svg>">
+  
+  <!-- FontAwesome for Premium Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Terra Organic Design CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+  {% if current_user.is_authenticated %}
+    <!-- Layout para Usuarios Logueados (Dashboard Layout) -->
+    <div class="dashboard-layout">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div>
+          <div class="sidebar-brand">
+            <div class="logo-container">
+              <span class="logo-text">🌱 SIGIPLAN</span>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--color-text-muted); margin-top: 4px;">
+              {{ current_user.entity.name if current_user.entity else 'Plataforma Global' }}
+            </div>
+          </div>
+          
+          <nav>
+            <ul class="sidebar-menu">
+              <!-- Enlace común Dashboard -->
+              <li class="sidebar-item {% if request.blueprint == 'public' and request.endpoint == 'public.dashboard' %}active{% endif %}">
+                <a href="{{ url_for('public.dashboard') }}">
+                  <i class="fa-solid fa-chart-line"></i> Inicio
+                </a>
+              </li>
+              
+              <!-- Rutas por Roles -->
+              {% if current_user.role == 'SUPER_ADMIN' %}
+                <li class="sidebar-item {% if request.blueprint == 'superadmin' and request.endpoint == 'superadmin.index' %}active{% endif %}">
+                  <a href="{{ url_for('superadmin.index') }}">
+                    <i class="fa-solid fa-gauge-high"></i> Panel de Control
+                  </a>
+                </li>
+                <li class="sidebar-item {% if request.endpoint in ['superadmin.entities', 'superadmin.entity_create', 'superadmin.entity_edit'] %}active{% endif %}">
+                  <a href="{{ url_for('superadmin.entities') }}">
+                    <i class="fa-solid fa-building-flag"></i> Entidades
+                  </a>
+                </li>
+                <li class="sidebar-item {% if request.endpoint in ['superadmin.users', 'superadmin.user_create', 'superadmin.user_edit'] %}active{% endif %}">
+                  <a href="{{ url_for('superadmin.users') }}">
+                    <i class="fa-solid fa-users"></i> Usuarios
+                  </a>
+                </li>
+                <li class="sidebar-item {% if request.endpoint == 'superadmin.logs' %}active{% endif %}">
+                  <a href="{{ url_for('superadmin.logs') }}">
+                    <i class="fa-solid fa-scroll"></i> Logs de Auditoría
+                  </a>
+                </li>
+              {% endif %}
+              
+              {% if current_user.role == 'ENTITY_ADMIN' %}
+                <li class="sidebar-item {% if request.endpoint == 'admin.dashboard' %}active{% endif %}">
+                  <a href="{{ url_for('admin.dashboard') }}">
+                    <i class="fa-solid fa-gauge-high"></i> Panel de Entidad
+                  </a>
+                </li>
+                <li class="sidebar-item {% if request.endpoint in ['admin.users','admin.user_create','admin.user_edit'] %}active{% endif %}">
+                  <a href="{{ url_for('admin.users') }}">
+                    <i class="fa-solid fa-users-gear"></i> Colaboradores
+                  </a>
+                </li>
+                <li class="sidebar-item {% if request.endpoint in ['admin.funding','admin.funding_create','admin.funding_edit'] %}active{% endif %}">
+                  <a href="{{ url_for('admin.funding') }}">
+                    <i class="fa-solid fa-money-bill-wave"></i> Financiamiento
+                  </a>
+                </li>
+                <li class="sidebar-item {% if request.endpoint == 'admin.entity_profile' %}active{% endif %}">
+                  <a href="{{ url_for('admin.entity_profile') }}">
+                    <i class="fa-solid fa-building"></i> Perfil de Entidad
+                  </a>
+                </li>
+                <li class="sidebar-item {% if request.endpoint == 'admin.logs' %}active{% endif %}">
+                  <a href="{{ url_for('admin.logs') }}">
+                    <i class="fa-solid fa-scroll"></i> Actividad
+                  </a>
+                </li>
+              {% endif %}
+              
+              {% if current_user.role == 'PLANNING_DIRECTOR' %}
+                <li class="sidebar-item {% if request.blueprint == 'planning' and request.endpoint in ['planning.initiatives', 'planning.create_initiative', 'planning.initiative_detail', 'planning.initiative_edit', 'planning.trash'] %}active{% endif %}">
+                  <a href="{{ url_for('planning.initiatives') }}">
+                    <i class="fa-solid fa-folder-open"></i> Iniciativas
+                  </a>
+                </li>
+                <li class="sidebar-item {% if request.blueprint == 'planning' and request.endpoint == 'planning.funding' %}active{% endif %}">
+                  <a href="{{ url_for('planning.funding') }}">
+                    <i class="fa-solid fa-money-bill-wave"></i> Financiamiento
+                  </a>
+                </li>
+                <li class="sidebar-item {% if request.blueprint == 'planning' and request.endpoint == 'planning.org_chart' %}active{% endif %}">
+                  <a href="{{ url_for('planning.org_chart') }}">
+                    <i class="fa-solid fa-sitemap"></i> Organigrama
+                  </a>
+                </li>
+              {% endif %}
+
+              {% if current_user.role in ['FORMULATION_LEADER', 'TECHNICAL_FORMULATOR'] %}
+                <li class="sidebar-item {% if request.blueprint == 'formulation' %}active{% endif %}">
+                  <a href="{{ url_for('formulation.index') }}">
+                    <i class="fa-solid fa-pen-ruler"></i> Formulación
+                  </a>
+                </li>
+              {% endif %}
+            </ul>
+          </nav>
+        </div>
+        
+        <div>
+          <ul class="sidebar-menu">
+            <li class="sidebar-item">
+              <a href="{{ url_for('auth.logout') }}" style="color: var(--color-danger);">
+                <i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión
+              </a>
+            </li>
+          </ul>
+        </div>
+      </aside>
+
+      <!-- Main Dashboard Content -->
+      <main class="dashboard-main">
+        <header class="dashboard-header">
+          <div>
+            <h1>{% block dashboard_title %}Panel de Control{% endblock %}</h1>
+            <p style="color: var(--color-text-muted); font-size: 0.95rem;">{% block dashboard_subtitle %}Resumen de la plataforma{% endblock %}</p>
+          </div>
+          
+          <a href="{{ url_for('public.profile') }}" class="user-badge" style="text-decoration:none;color:inherit;{% if request.endpoint == 'public.profile' %}box-shadow:0 0 0 2px var(--color-primary);{% endif %}" title="Ver mi perfil">
+            <div class="user-badge-avatar">
+              {{ current_user.first_name[0] | upper }}
+            </div>
+            <div style="text-align: left; line-height: 1.2;">
+              <div style="font-weight: 700; font-size: 0.85rem;">{{ current_user.full_name }}</div>
+              <div style="font-size: 0.75rem; color: var(--color-text-muted);">{{ current_user.get_role_display() }}</div>
+            </div>
+          </a>
+        </header>
+
+        <!-- Flash Alert Messages inside dashboard -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-messages">
+              {% for category, message in messages %}
+                <div class="alert alert-{{ category if category != 'error' else 'danger' }}">
+                  <i class="fa-solid {% if category == 'success' %}fa-circle-check{% elif category == 'warning' %}fa-triangle-exclamation{% else %}fa-circle-exclamation{% endif %}" style="margin-right: 8px;"></i>
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        {% block dashboard_content %}{% endblock %}
+      </main>
+    </div>
+  {% else %}
+    <!-- Layout para Usuarios Públicos / Landing y Login -->
+    <header class="landing-header">
+      <div class="container nav-container">
+        <a href="{{ url_for('public.landing') }}" class="logo-container">
+          <span class="logo-text">🌱 SIGIPLAN</span>
+        </a>
+        <nav>
+          {% if request.endpoint != 'auth.login' %}
+            <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-sm">Iniciar Sesión</a>
+          {% else %}
+            <a href="{{ url_for('public.landing') }}" class="btn btn-secondary btn-sm">Inicio</a>
+          {% endif %}
+        </nav>
+      </div>
+    </header>
+
+    <!-- Flash Alert Messages for public pages -->
+    <div class="container" style="margin-top: 24px;">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-messages">
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category if category != 'error' else 'danger' }}">
+                <i class="fa-solid {% if category == 'success' %}fa-circle-check{% elif category == 'warning' %}fa-triangle-exclamation{% else %}fa-circle-exclamation{% endif %}" style="margin-right: 8px;"></i>
+                {{ message }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+    </div>
+
+    {% block content %}{% endblock %}
+    
+    <footer class="landing-footer">
+      <div class="container">
+        <p>&copy; {{ current_year }} SIGIPLAN — Plataforma de Gestión de Inversión Pública. Todos los derechos reservados.</p>
+      </div>
+    </footer>
+  {% endif %}
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

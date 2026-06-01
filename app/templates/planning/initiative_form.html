@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}SIGIPLAN — {{ 'Nueva Iniciativa' if action == 'create' else 'Editar Iniciativa' }}{% endblock %}
+{% block dashboard_title %}{{ 'Nueva Iniciativa' if action == 'create' else 'Editar Iniciativa' }}{% endblock %}
+{% block dashboard_subtitle %}
+  {% if action == 'create' %}Registra un nuevo proyecto de inversión en la cartera.
+  {% else %}Modificando <strong>{{ initiative.code }}</strong>.{% endif %}
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content">
+  <form method="POST" style="max-width:920px;">
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:start;">
+
+      <!-- Columna principal: datos del proyecto -->
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <div class="card" style="padding:28px;">
+          <h3 style="font-size:0.95rem;margin-bottom:18px;display:flex;align-items:center;gap:8px;">
+            <i class="fa-solid fa-folder-open" style="color:var(--color-primary);"></i> Datos del Proyecto
+          </h3>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div class="form-group">
+              <label class="form-label" for="code">Código <span style="color:var(--color-danger);">*</span></label>
+              <input type="text" id="code" name="code" class="form-control" value="{{ data.code }}"
+                     placeholder="Ej: INIT-CESFAM-01" style="text-transform:uppercase;" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="estimated_cost">Costo Estimado (CLP)</label>
+              <input type="text" id="estimated_cost" name="estimated_cost" class="form-control"
+                     value="{{ data.estimated_cost }}" placeholder="Ej: 340000000">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="title">Título <span style="color:var(--color-danger);">*</span></label>
+            <input type="text" id="title" name="title" class="form-control" value="{{ data.title }}"
+                   placeholder="Nombre del proyecto de inversión" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="description">Descripción <span style="color:var(--color-danger);">*</span></label>
+            <textarea id="description" name="description" class="form-control" rows="5"
+                      placeholder="Alcance, objetivos y componentes del proyecto…" required>{{ data.description }}</textarea>
+          </div>
+
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="deadline">Plazo / Fecha Límite</label>
+            <input type="date" id="deadline" name="deadline" class="form-control" value="{{ data.deadline }}">
+          </div>
+        </div>
+
+        <!-- Fuentes de financiamiento -->
+        <div class="card" style="padding:28px;">
+          <h3 style="font-size:0.95rem;margin-bottom:6px;display:flex;align-items:center;gap:8px;">
+            <i class="fa-solid fa-money-bill-wave" style="color:var(--color-primary);"></i> Fuentes de Financiamiento
+          </h3>
+          <p style="font-size:0.78rem;color:var(--color-text-muted);margin-bottom:16px;">
+            Selecciona una o más fuentes (creadas por el Administrador de la entidad).
+          </p>
+          {% if funding_sources %}
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              {% for s in funding_sources %}
+                <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--color-border);border-radius:var(--border-radius-md);cursor:pointer;">
+                  <input type="checkbox" name="funding_sources" value="{{ s.id|string }}"
+                         {% if s.id|string in data.funding_sources %}checked{% endif %}
+                         style="width:18px;height:18px;accent-color:var(--color-primary);">
+                  <div style="flex:1;">
+                    <div style="font-weight:700;font-size:0.85rem;">{{ s.code }} <span style="font-weight:400;color:var(--color-text-muted);">— {{ s.name }}</span></div>
+                    <div style="font-size:0.76rem;color:var(--color-text-muted);">${{ "{:,.0f}".format(s.remaining_budget) }} disponible</div>
+                  </div>
+                </label>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p style="font-size:0.82rem;color:var(--color-text-muted);font-style:italic;">
+              No hay fuentes de financiamiento activas. Pídele al Administrador de la entidad que registre alguna.
+            </p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Columna lateral: responsables -->
+      <div class="card" style="padding:28px;">
+        <h3 style="font-size:0.95rem;margin-bottom:18px;display:flex;align-items:center;gap:8px;">
+          <i class="fa-solid fa-users-gear" style="color:var(--color-primary);"></i> Responsables
+        </h3>
+
+        <div class="form-group">
+          <label class="form-label" for="planning_director">Director de Planificación</label>
+          <select id="planning_director" name="planning_director" class="form-control">
+            <option value="">— Sin asignar —</option>
+            {% for u in team.directors %}
+              <option value="{{ u.id|string }}" {% if data.planning_director == u.id|string %}selected{% endif %}>{{ u.full_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="formulation_leader">Coordinador de Formulación</label>
+          <select id="formulation_leader" name="formulation_leader" class="form-control">
+            <option value="">— Sin asignar —</option>
+            {% for u in team.leaders %}
+              <option value="{{ u.id|string }}" {% if data.formulation_leader == u.id|string %}selected{% endif %}>{{ u.full_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Formuladores Técnicos</label>
+          {% if team.formulators %}
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+              {% for u in team.formulators %}
+                <label style="display:flex;align-items:center;gap:10px;font-size:0.85rem;cursor:pointer;">
+                  <input type="checkbox" name="assigned_formulators" value="{{ u.id|string }}"
+                         {% if u.id|string in data.assigned_formulators %}checked{% endif %}
+                         style="width:17px;height:17px;accent-color:var(--color-primary);">
+                  {{ u.full_name }}
+                </label>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p style="font-size:0.8rem;color:var(--color-text-muted);font-style:italic;">No hay formuladores en la entidad.</p>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Acciones -->
+    <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:24px;max-width:920px;">
+      <a href="{{ url_for('planning.initiative_detail', initiative_id=initiative.id|string) if initiative else url_for('planning.initiatives') }}"
+         class="btn btn-secondary">
+        <i class="fa-solid fa-arrow-left" style="margin-right:6px;"></i> Cancelar
+      </a>
+      <button type="submit" class="btn btn-primary">
+        {% if action == 'create' %}<i class="fa-solid fa-plus" style="margin-right:6px;"></i> Crear Iniciativa
+        {% else %}<i class="fa-solid fa-floppy-disk" style="margin-right:6px;"></i> Guardar Cambios{% endif %}
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

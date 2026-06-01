@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}SIGIPLAN — Formulación{% endblock %}
+{% block dashboard_title %}Mesa de Formulación{% endblock %}
+{% block dashboard_subtitle %}
+  {% if is_leader %}Coordina la formulación técnica del equipo de {{ current_user.entity.name }}.
+  {% else %}Iniciativas en las que estás trabajando.{% endif %}
+{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content">
+
+  <!-- Métricas -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-bottom:28px;">
+    <div class="card" style="padding:22px;">
+      <div style="font-size:0.73rem;font-weight:700;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:8px;">Asignadas</div>
+      <div style="font-size:2.1rem;font-weight:800;color:var(--color-info);line-height:1;">{{ metrics.total }}</div>
+    </div>
+    <div class="card" style="padding:22px;">
+      <div style="font-size:0.73rem;font-weight:700;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:8px;">En Formulación</div>
+      <div style="font-size:2.1rem;font-weight:800;color:var(--color-primary);line-height:1;">{{ metrics.in_progress }}</div>
+    </div>
+    <div class="card" style="padding:22px;">
+      <div style="font-size:0.73rem;font-weight:700;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:8px;">En Revisión</div>
+      <div style="font-size:2.1rem;font-weight:800;color:var(--color-warning);line-height:1;">{{ metrics.under_review }}</div>
+    </div>
+    <div class="card" style="padding:22px;">
+      <div style="font-size:0.73rem;font-weight:700;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:8px;">Devueltas</div>
+      <div style="font-size:2.1rem;font-weight:800;color:var(--color-danger);line-height:1;">{{ metrics.rejected }}</div>
+    </div>
+  </div>
+
+  {% if groups %}
+    {% for status, label, items in groups %}
+      <div style="margin-bottom:26px;">
+        <h3 style="font-size:0.82rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--color-text-muted);margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+          <span class="badge {% if status == 'DRAFT' %}badge-draft{% elif status == 'IN_PROGRESS' %}badge-progress{% elif status == 'UNDER_REVIEW' %}badge-review{% elif status == 'APPROVED' %}badge-approved{% elif status == 'REJECTED' %}badge-rejected{% else %}badge-draft{% endif %}">{{ label }}</span>
+          <span style="color:var(--color-text-muted);font-weight:600;">{{ items|length }}</span>
+        </h3>
+
+        <div class="card" style="padding:0;overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+            <tbody>
+              {% for init in items %}
+                <tr style="border-top:{{ '0' if loop.first else '1px solid var(--color-border)' }};" onmouseover="this.style.background='var(--color-bg-base)'" onmouseout="this.style.background=''">
+                  <td style="padding:14px 20px;">
+                    <div style="font-weight:800;color:var(--color-primary);font-size:0.8rem;">{{ init.code }}</div>
+                    <div style="font-weight:600;max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ init.title }}</div>
+                  </td>
+                  <td style="padding:14px 16px;text-align:center;font-size:0.8rem;color:var(--color-text-muted);">
+                    <i class="fa-solid fa-paperclip" style="margin-right:4px;"></i> {{ init.attachments|length }}
+                  </td>
+                  <td style="padding:14px 16px;text-align:right;font-weight:700;white-space:nowrap;">
+                    ${{ "{:,.0f}".format(init.estimated_cost or 0) }}
+                  </td>
+                  <td style="padding:14px 20px;text-align:right;">
+                    <a href="{{ url_for('formulation.initiative_work', initiative_id=init.id|string) }}" class="btn btn-secondary btn-sm" style="padding:5px 14px;font-size:0.78rem;">
+                      <i class="fa-solid fa-pen-ruler" style="margin-right:5px;"></i> Trabajar
+                    </a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="card" style="padding:60px 24px;text-align:center;color:var(--color-text-muted);">
+      <i class="fa-solid fa-folder-open" style="font-size:2.5rem;opacity:0.3;display:block;margin-bottom:16px;"></i>
+      <p style="font-style:italic;">
+        {% if is_leader %}No hay iniciativas activas en la entidad.
+        {% else %}Aún no tienes iniciativas asignadas. El Coordinador de Formulación te asignará proyectos.{% endif %}
+      </p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

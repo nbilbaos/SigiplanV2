@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}SIGIPLAN — Gestión Estratégica de Inversión Pública{% endblock %}
+
+{% block content %}
+<main>
+  <!-- Hero Section -->
+  <section class="hero-section container">
+    <div>
+      <h1 style="font-size: 3rem; color: var(--color-text-dark); line-height: 1.12; margin-bottom: 20px;">
+        Control estratégico de la <span style="color: var(--color-primary);">inversión pública</span>
+      </h1>
+      <p class="hero-subtitle">
+        "Conectando la planificación estratégica del Estado con la formulación técnica, de manera clara, trazable y humana."
+      </p>
+      <p style="color: var(--color-text-muted); font-size: 1.1rem; margin-bottom: 32px; max-width: 500px;">
+        SIGIPLAN permite a gobiernos locales, ministerios y agencias públicas formular iniciativas de inversión bajo un robusto control de roles, trazabilidad inmutable y paneles interactivos.
+      </p>
+      <div class="hero-actions">
+        <a href="{{ url_for('auth.login') }}" class="btn btn-primary">Comenzar Ahora</a>
+        <a href="#features" class="btn btn-secondary">Saber Más</a>
+      </div>
+    </div>
+    <div class="hero-image-wrapper">
+      <!-- Illustrative organic CSS card depicting an initiative pipeline node map -->
+      <div style="background-color: var(--color-bg-input); padding: 40px; border-radius: 12px; height: 350px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--color-border);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h4 style="font-family: var(--font-headlines); color: var(--color-primary);">🌱 Proyecto: Sigiplan Corp</h4>
+          <span class="badge badge-progress">En Formulación</span>
+        </div>
+        
+        <div style="margin: 20px 0; border-left: 3px solid var(--color-primary); padding-left: 16px;">
+          <p style="font-size: 0.9rem; color: var(--color-text-muted); font-style: italic;">
+            "Construcción y habilitación del nuevo centro de salud familiar para la comuna."
+          </p>
+          <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 0.75rem; background: var(--color-bg-card); padding: 4px 8px; border-radius: 4px; font-weight: 700; color: var(--color-tertiary);">FNDR-2026</span>
+            <span style="font-size: 0.75rem; background: var(--color-bg-card); padding: 4px 8px; border-radius: 4px; font-weight: 700; color: var(--color-text-muted);">MUNICIPAL</span>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--color-bg-card); padding: 12px; border-radius: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--color-primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700;">N</div>
+            <div style="font-size: 0.8rem; font-weight: 700;">Nemesio Bilbao (Coordinador)</div>
+          </div>
+          <span style="font-size: 0.8rem; font-weight: 700; color: var(--color-primary);">$340,000,000</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="features-section">
+    <div class="container">
+      <div class="section-title-wrapper">
+        <h2 style="color: var(--color-primary);">Funcionalidades Diseñadas para Gobiernos Modernos</h2>
+        <p style="color: var(--color-text-muted);">Todo lo necesario para asegurar la transparencia, el orden y la eficiencia técnica en la asignación del gasto público.</p>
+      </div>
+
+      <div class="features-grid">
+        <!-- Feature 1 -->
+        <div class="card">
+          <div class="card-icon"><i class="fa-solid fa-users-gear"></i></div>
+          <h3 class="card-title">Seguridad Basada en Roles (RBAC)</h3>
+          <p class="card-text">
+            Desde el Director de Planificación que establece plazos y metas, hasta el Formulador Analista que documenta especificaciones, cada rol tiene una vista diseñada para su trabajo.
+          </p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="card">
+          <div class="card-icon"><i class="fa-solid fa-history"></i></div>
+          <h3 class="card-title">Auditoría y Trazabilidad</h3>
+          <p class="card-text">
+            Cada cambio presupuestario, adjunto subido o cambio en el estado de formulación es sellado y registrado de forma inmutable para cumplir con los estándares de contraloría.
+          </p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="card">
+          <div class="card-icon"><i class="fa-solid fa-sitemap"></i></div>
+          <h3 class="card-title">Organigrama y Flujos de Avance</h3>
+          <p class="card-text">
+            Monitorea el progreso de toda tu institución a través de una red de proyectos interactiva que conecta presupuestos, coordinadores y plazos de entrega en tiempo real.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="container" style="padding: 80px 0; text-align: center;">
+    <div style="background-color: var(--color-bg-card); padding: 48px; border-radius: 20px; border: 1px solid var(--color-border); box-shadow: var(--shadow-soft);">
+      <h2 style="font-size: 2.25rem; color: var(--color-primary); margin-bottom: 16px;">¿Listo para digitalizar tu entidad?</h2>
+      <p style="color: var(--color-text-muted); max-width: 600px; margin: 0 auto 32px auto; font-size: 1.1rem;">
+        Únete a las instituciones públicas que ya planifican su desarrollo local de forma transparente, estructurada y en un entorno visualmente reconfortante.
+      </p>
+      <a href="{{ url_for('auth.login') }}" class="btn btn-primary">Iniciar Sesión en tu Institución</a>
+    </div>
+  </section>
+</main>
+{% endblock %}

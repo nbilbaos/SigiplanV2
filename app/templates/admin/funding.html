@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}SIGIPLAN — Fuentes de Financiamiento{% endblock %}
+{% block dashboard_title %}Fuentes de Financiamiento{% endblock %}
+{% block dashboard_subtitle %}Gestiona los presupuestos de {{ current_user.entity.name }}.{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content">
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <span style="font-size:0.9rem;color:var(--color-text-muted);">
+      <strong style="color:var(--color-text-dark);">{{ sources|list|length }}</strong> fuente{{ 's' if sources|list|length != 1 else '' }} registrada{{ 's' if sources|list|length != 1 else '' }}
+    </span>
+    <a href="{{ url_for('admin.funding_create') }}" class="btn btn-primary btn-sm">
+      <i class="fa-solid fa-plus" style="margin-right:6px;"></i> Nueva Fuente
+    </a>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden;">
+    {% if sources %}
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+          <thead>
+            <tr style="background:var(--color-bg-base);">
+              <th style="padding:13px 20px;text-align:left;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;">Fuente</th>
+              <th style="padding:13px 16px;text-align:right;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;">Presupuesto Total</th>
+              <th style="padding:13px 16px;text-align:right;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;">Asignado</th>
+              <th style="padding:13px 16px;text-align:right;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;">Disponible</th>
+              <th style="padding:13px 16px;text-align:center;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;">Uso</th>
+              <th style="padding:13px 16px;text-align:center;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;">Estado</th>
+              <th style="padding:13px 16px;text-align:right;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for source in sources %}
+              {% set pct = ((source.allocated_budget / source.total_budget * 100)|int) if source.total_budget > 0 else 0 %}
+              <tr style="border-top:1px solid var(--color-border);" onmouseover="this.style.background='var(--color-bg-base)'" onmouseout="this.style.background=''">
+
+                <td style="padding:14px 20px;">
+                  <div style="font-weight:700;color:var(--color-text-dark);">{{ source.name }}</div>
+                  <div style="font-size:0.78rem;color:var(--color-text-muted);margin-top:2px;">
+                    <i class="fa-solid fa-tag" style="margin-right:4px;opacity:0.6;"></i>{{ source.code }}
+                  </div>
+                </td>
+
+                <td style="padding:14px 16px;text-align:right;font-weight:700;">
+                  ${{ "{:,.0f}".format(source.total_budget) }}
+                </td>
+
+                <td style="padding:14px 16px;text-align:right;color:var(--color-tertiary);font-weight:700;">
+                  ${{ "{:,.0f}".format(source.allocated_budget) }}
+                </td>
+
+                <td style="padding:14px 16px;text-align:right;font-weight:700;
+                  {% if source.remaining_budget <= 0 %}color:var(--color-danger);
+                  {% elif pct > 80 %}color:var(--color-warning);
+                  {% else %}color:var(--color-primary);{% endif %}">
+                  ${{ "{:,.0f}".format(source.remaining_budget) }}
+                </td>
+
+                <td style="padding:14px 16px;text-align:center;">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="flex:1;background:var(--color-bg-base);border-radius:20px;height:8px;overflow:hidden;min-width:60px;">
+                      <div style="height:100%;border-radius:20px;
+                        {% if pct >= 100 %}background:var(--color-danger);
+                        {% elif pct > 80 %}background:var(--color-warning);
+                        {% else %}background:var(--color-primary);{% endif %}
+                        width:{{ [pct, 100]|min }}%;"></div>
+                    </div>
+                    <span style="font-size:0.78rem;font-weight:700;color:var(--color-text-muted);width:32px;">{{ pct }}%</span>
+                  </div>
+                </td>
+
+                <td style="padding:14px 16px;text-align:center;">
+                  {% if source.is_active %}
+                    <span style="display:inline-flex;align-items:center;gap:5px;font-size:0.8rem;font-weight:700;color:var(--color-success);">
+                      <span style="width:7px;height:7px;background:var(--color-success);border-radius:50%;"></span> Activa
+                    </span>
+                  {% else %}
+                    <span style="display:inline-flex;align-items:center;gap:5px;font-size:0.8rem;font-weight:700;color:var(--color-danger);">
+                      <span style="width:7px;height:7px;background:var(--color-danger);border-radius:50%;"></span> Inactiva
+                    </span>
+                  {% endif %}
+                </td>
+
+                <td style="padding:14px 16px;text-align:right;">
+                  <div style="display:inline-flex;gap:8px;">
+                    <a href="{{ url_for('admin.funding_edit', source_id=source.id|string) }}" class="btn btn-secondary btn-sm" style="padding:5px 12px;font-size:0.78rem;">
+                      <i class="fa-solid fa-pen-to-square" style="margin-right:4px;"></i> Editar
+                    </a>
+                    <form method="POST" action="{{ url_for('admin.funding_toggle', source_id=source.id|string) }}"
+                          onsubmit="return confirm('¿{{ 'Desactivar' if source.is_active else 'Activar' }} la fuente {{ source.code }}?')">
+                      <button type="submit" class="btn btn-sm" style="padding:5px 12px;font-size:0.78rem;
+                        {% if source.is_active %}background:rgba(176,92,74,0.1);color:var(--color-danger);border:1px solid rgba(176,92,74,0.2);
+                        {% else %}background:var(--color-primary-light);color:var(--color-primary);border:1px solid rgba(74,124,89,0.2);{% endif %}">
+                        {% if source.is_active %}<i class="fa-solid fa-ban" style="margin-right:4px;"></i> Desactivar
+                        {% else %}<i class="fa-solid fa-circle-check" style="margin-right:4px;"></i> Activar{% endif %}
+                      </button>
+                    </form>
+                  </div>
+                </td>
+
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div style="padding:60px 24px;text-align:center;color:var(--color-text-muted);">
+        <i class="fa-solid fa-sack-xmark" style="font-size:2.5rem;opacity:0.3;display:block;margin-bottom:16px;"></i>
+        <p style="font-style:italic;margin-bottom:20px;">No hay fuentes de financiamiento registradas.</p>
+        <a href="{{ url_for('admin.funding_create') }}" class="btn btn-primary btn-sm">
+          <i class="fa-solid fa-plus" style="margin-right:6px;"></i> Crear Primera Fuente
+        </a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}SIGIPLAN — Logs de Auditoría Global{% endblock %}
+{% block dashboard_title %}Logs de Auditoría{% endblock %}
+{% block dashboard_subtitle %}Registro cronológico de todas las acciones realizadas sobre iniciativas en la plataforma.{% endblock %}
+
+{% block dashboard_content %}
+
+{% set action_meta = {
+  'CREATE':           ('Creación',           '#4a7c59', 'rgba(74,124,89,0.12)',  'fa-plus-circle'),
+  'UPDATE':           ('Actualización',      '#4a6c7c', 'rgba(74,108,124,0.12)', 'fa-pen'),
+  'SUBMIT_FOR_REVIEW':('Enviado a Revisión', '#c2953b', 'rgba(194,149,59,0.12)', 'fa-paper-plane'),
+  'APPROVE':          ('Aprobación',         '#3b6347', 'rgba(59,99,71,0.12)',   'fa-circle-check'),
+  'REJECT':           ('Rechazo',            '#b05c4a', 'rgba(176,92,74,0.12)',  'fa-circle-xmark'),
+  'SOFT_DELETE':      ('Eliminación',        '#b05c4a', 'rgba(176,92,74,0.12)',  'fa-trash'),
+  'RESTORE':          ('Restauración',       '#4a6c7c', 'rgba(74,108,124,0.12)', 'fa-rotate-left')
+} %}
+
+{% set action_labels = {
+  'CREATE':            'Creación',
+  'UPDATE':            'Actualización',
+  'SUBMIT_FOR_REVIEW': 'Enviado a Revisión',
+  'APPROVE':           'Aprobación',
+  'REJECT':            'Rechazo',
+  'SOFT_DELETE':       'Eliminación',
+  'RESTORE':           'Restauración'
+} %}
+
+<div class="dashboard-content">
+
+  <!-- Filtros -->
+  <form method="GET" style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap;">
+
+    <div style="flex: 1; min-width: 180px;">
+      <label style="display:block; font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.5px; margin-bottom:6px;">Entidad</label>
+      <select name="entity_id" class="form-control" style="padding:9px 12px;">
+        <option value="">Todas las entidades</option>
+        {% for entity in all_entities %}
+          <option value="{{ entity.id | string }}" {% if selected_entity_id == entity.id | string %}selected{% endif %}>
+            {{ entity.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="flex: 1; min-width: 160px;">
+      <label style="display:block; font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.5px; margin-bottom:6px;">Acción</label>
+      <select name="action" class="form-control" style="padding:9px 12px;">
+        <option value="">Todas las acciones</option>
+        {% for action in audit_actions %}
+          <option value="{{ action }}" {% if selected_action == action %}selected{% endif %}>
+            {{ action_labels.get(action, action) }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="min-width: 140px;">
+      <label style="display:block; font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.5px; margin-bottom:6px;">Desde</label>
+      <input type="date" name="date_from" class="form-control" style="padding:9px 12px;" value="{{ date_from }}">
+    </div>
+
+    <div style="min-width: 140px;">
+      <label style="display:block; font-size:0.75rem; font-weight:700; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.5px; margin-bottom:6px;">Hasta</label>
+      <input type="date" name="date_to" class="form-control" style="padding:9px 12px;" value="{{ date_to }}">
+    </div>
+
+    <button type="submit" class="btn btn-secondary btn-sm" style="padding:10px 20px;">
+      <i class="fa-solid fa-filter" style="margin-right:6px;"></i> Filtrar
+    </button>
+    {% if selected_entity_id or selected_action or date_from or date_to %}
+      <a href="{{ url_for('superadmin.logs') }}" class="btn btn-sm"
+         style="padding:10px 16px; background:transparent; color:var(--color-text-muted); border:1px solid var(--color-border);">
+        <i class="fa-solid fa-xmark" style="margin-right:4px;"></i> Limpiar
+      </a>
+    {% endif %}
+  </form>
+
+  <!-- Contador -->
+  <div style="margin-bottom: 20px; font-size: 0.9rem; color: var(--color-text-muted);">
+    {% if total > 200 %}
+      Mostrando las <strong style="color:var(--color-text-dark);">200</strong> entradas más recientes de <strong style="color:var(--color-text-dark);">{{ total }}</strong> encontradas.
+    {% else %}
+      <strong style="color:var(--color-text-dark);">{{ total }}</strong>
+      entrada{{ 's' if total != 1 else '' }} encontrada{{ 's' if total != 1 else '' }}.
+    {% endif %}
+  </div>
+
+  <!-- Tabla de logs -->
+  <div class="card" style="padding:0; overflow:hidden;">
+    {% if entries %}
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:0.875rem;">
+          <thead>
+            <tr style="background:var(--color-bg-base);">
+              <th style="padding:13px 20px; text-align:left; font-size:0.72rem; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.5px; font-weight:700; white-space:nowrap;">Fecha y Hora</th>
+              <th style="padding:13px 16px; text-align:left; font-size:0.72rem; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.5px; font-weight:700;">Usuario</th>
+              <th style="padding:13px 16px; text-align:left; font-size:0.72rem; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.5px; font-weight:700;">Acción</th>
+              <th style="padding:13px 16px; text-align:left; font-size:0.72rem; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.5px; font-weight:700;">Iniciativa</th>
+              <th style="padding:13px 16px; text-align:left; font-size:0.72rem; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.5px; font-weight:700;">Entidad</th>
+              <th style="padding:13px 16px; text-align:left; font-size:0.72rem; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.5px; font-weight:700;">Detalle</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in entries %}
+              {% set meta = action_meta.get(entry.action, ('Acción', 'var(--color-text-muted)', 'rgba(46,50,48,0.08)', 'fa-circle')) %}
+              <tr style="border-top:1px solid var(--color-border);" onmouseover="this.style.background='var(--color-bg-base)'" onmouseout="this.style.background=''">
+
+                <!-- Fecha y hora -->
+                <td style="padding:13px 20px; white-space:nowrap;">
+                  <div style="font-weight:700; font-size:0.85rem;">{{ entry.timestamp.strftime('%d/%m/%Y') }}</div>
+                  <div style="font-size:0.78rem; color:var(--color-text-muted);">{{ entry.timestamp.strftime('%H:%M:%S') }}</div>
+                </td>
+
+                <!-- Usuario -->
+                <td style="padding:13px 16px;">
+                  {% if entry.user %}
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <div style="width:28px; height:28px; border-radius:50%; background:var(--color-primary-light); color:var(--color-primary); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:0.78rem; flex-shrink:0;">
+                        {{ entry.user.first_name[0] | upper }}
+                      </div>
+                      <div>
+                        <div style="font-weight:700; font-size:0.85rem;">{{ entry.user.full_name }}</div>
+                        <div style="font-size:0.72rem; color:var(--color-text-muted);">{{ entry.user.get_role_display() }}</div>
+                      </div>
+                    </div>
+                  {% else %}
+                    <span style="color:var(--color-text-muted); font-style:italic; font-size:0.82rem;">Usuario eliminado</span>
+                  {% endif %}
+                </td>
+
+                <!-- Acción -->
+                <td style="padding:13px 16px;">
+                  <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:20px; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; background:{{ meta[2] }}; color:{{ meta[1] }};">
+                    <i class="fa-solid {{ meta[3] }}" style="font-size:0.65rem;"></i>
+                    {{ meta[0] }}
+                  </span>
+                </td>
+
+                <!-- Iniciativa -->
+                <td style="padding:13px 16px;">
+                  <div style="font-weight:700; font-size:0.85rem; color:var(--color-primary);">{{ entry.initiative_code }}</div>
+                  <div style="font-size:0.78rem; color:var(--color-text-muted); max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ entry.initiative_title }}</div>
+                </td>
+
+                <!-- Entidad -->
+                <td style="padding:13px 16px; font-size:0.82rem; color:var(--color-text-muted);">
+                  {% if entry.entity %}{{ entry.entity.name }}{% else %}—{% endif %}
+                </td>
+
+                <!-- Detalle -->
+                <td style="padding:13px 16px; font-size:0.82rem; color:var(--color-text-muted); max-width:240px;">
+                  {{ entry.details or '—' }}
+                </td>
+
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if total > 200 %}
+        <div style="padding:16px 20px; border-top:1px solid var(--color-border); background:var(--color-bg-base); font-size:0.82rem; color:var(--color-text-muted); text-align:center;">
+          <i class="fa-solid fa-circle-info" style="margin-right:6px;"></i>
+          Se muestran las 200 entradas más recientes. Usa los filtros para acotar los resultados.
+        </div>
+      {% endif %}
+
+    {% else %}
+      <div style="padding:60px 24px; text-align:center; color:var(--color-text-muted);">
+        <i class="fa-solid fa-scroll" style="font-size:2.5rem; opacity:0.3; display:block; margin-bottom:16px;"></i>
+        <p style="font-style:italic; margin-bottom:12px;">No se encontraron registros de auditoría con los filtros aplicados.</p>
+        {% if selected_entity_id or selected_action or date_from or date_to %}
+          <a href="{{ url_for('superadmin.logs') }}" class="btn btn-secondary btn-sm">Limpiar filtros</a>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

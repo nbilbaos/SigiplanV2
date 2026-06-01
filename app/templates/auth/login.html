@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Iniciar Sesión - SIGIPLAN{% endblock %}
+
+{% block content %}
+<main class="auth-page">
+  <div class="auth-card">
+    <div class="auth-header">
+      <span style="font-size: 2.5rem; display: block; margin-bottom: 8px;">🌱</span>
+      <h2 class="auth-title">Ingresar a SIGIPLAN</h2>
+      <p class="auth-subtitle">Introduce tus credenciales para acceder a la plataforma institucional.</p>
+    </div>
+
+    <form method="POST" action="{{ url_for('auth.login') }}">
+      <div class="form-group">
+        <label for="email" class="form-label">Correo Electrónico</label>
+        <input 
+          type="email" 
+          id="email" 
+          name="email" 
+          class="form-control" 
+          placeholder="ejemplo@entidad.gob.cl" 
+          required 
+          autocomplete="email"
+          autofocus
+        >
+      </div>
+
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <label for="password" class="form-label" style="margin-bottom: 0;">Contraseña</label>
+          <a href="#" style="font-size: 0.8rem; color: var(--color-primary); font-weight: 600;">¿La olvidaste?</a>
+        </div>
+        <input 
+          type="password" 
+          id="password" 
+          name="password" 
+          class="form-control" 
+          placeholder="••••••••" 
+          required
+          autocomplete="current-password"
+        >
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 16px;">
+        Iniciar Sesión
+      </button>
+    </form>
+
+    <div style="margin-top: 24px; text-align: center; font-size: 0.85rem; color: var(--color-text-muted);">
+      <p>SIGIPLAN utiliza encriptación de nivel bancario y políticas de contraseñas de alta seguridad para la protección de datos del Estado.</p>
+    </div>
+  </div>
+</main>
+{% endblock %}

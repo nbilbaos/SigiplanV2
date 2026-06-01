@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}SIGIPLAN — Gestión Global de Usuarios{% endblock %}
+{% block dashboard_title %}Gestión Global de Usuarios{% endblock %}
+{% block dashboard_subtitle %}Todos los usuarios de la plataforma. Filtra por entidad o rol.{% endblock %}
+
+{% block dashboard_content %}
+
+{% set role_labels = {
+  'SUPER_ADMIN':          'Super Admin',
+  'ENTITY_ADMIN':         'Admin Entidad',
+  'PLANNING_DIRECTOR':    'Dir. Planificación',
+  'FORMULATION_LEADER':   'Coord. Formulación',
+  'TECHNICAL_FORMULATOR': 'Formulador Técnico'
+} %}
+
+<div class="dashboard-content">
+
+  <!-- Filtros -->
+  <form method="GET" style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap;">
+    <div style="flex: 1; min-width: 200px;">
+      <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; margin-bottom: 6px;">Entidad</label>
+      <select name="entity_id" class="form-control" style="padding: 9px 12px;">
+        <option value="">Todas las entidades</option>
+        {% for entity in all_entities %}
+          <option value="{{ entity.id | string }}" {% if selected_entity_id == entity.id | string %}selected{% endif %}>
+            {{ entity.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="flex: 1; min-width: 180px;">
+      <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; margin-bottom: 6px;">Rol</label>
+      <select name="role" class="form-control" style="padding: 9px 12px;">
+        <option value="">Todos los roles</option>
+        {% for role in roles %}
+          <option value="{{ role }}" {% if selected_role == role %}selected{% endif %}>
+            {{ role_labels[role] }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-secondary btn-sm" style="padding: 10px 20px;">
+      <i class="fa-solid fa-filter" style="margin-right: 6px;"></i> Filtrar
+    </button>
+    {% if selected_entity_id or selected_role %}
+      <a href="{{ url_for('superadmin.users') }}" class="btn btn-sm" style="padding: 10px 16px; background: transparent; color: var(--color-text-muted); border: 1px solid var(--color-border);">
+        <i class="fa-solid fa-xmark" style="margin-right: 4px;"></i> Limpiar
+      </a>
+    {% endif %}
+  </form>
+
+  <!-- Barra de acciones -->
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <span style="font-size: 0.9rem; color: var(--color-text-muted);">
+      <strong style="color: var(--color-text-dark);">{{ users | list | length }}</strong>
+      usuario{{ 's' if users | list | length != 1 else '' }} encontrado{{ 's' if users | list | length != 1 else '' }}
+    </span>
+    <a href="{{ url_for('superadmin.user_create') }}" class="btn btn-primary btn-sm">
+      <i class="fa-solid fa-user-plus" style="margin-right: 6px;"></i> Nuevo Usuario
+    </a>
+  </div>
+
+  <!-- Tabla de usuarios -->
+  <div class="card" style="padding: 0; overflow: hidden;">
+    {% if users %}
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+          <thead>
+            <tr style="background: var(--color-bg-base);">
+              <th style="padding: 13px 20px; text-align: left; font-size: 0.72rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Usuario</th>
+              <th style="padding: 13px 16px; text-align: left; font-size: 0.72rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Rol</th>
+              <th style="padding: 13px 16px; text-align: left; font-size: 0.72rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Entidad</th>
+              <th style="padding: 13px 16px; text-align: center; font-size: 0.72rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Último Acceso</th>
+              <th style="padding: 13px 16px; text-align: center; font-size: 0.72rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Estado</th>
+              <th style="padding: 13px 16px; text-align: right; font-size: 0.72rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for user in users %}
+              <tr style="border-top: 1px solid var(--color-border);" onmouseover="this.style.background='var(--color-bg-base)'" onmouseout="this.style.background=''">
+
+                <!-- Usuario -->
+                <td style="padding: 14px 20px;">
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--color-primary-light); color: var(--color-primary); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.9rem; flex-shrink: 0;">
+                      {{ user.first_name[0] | upper }}
+                    </div>
+                    <div>
+                      <div style="font-weight: 700;">{{ user.full_name }}</div>
+                      <div style="font-size: 0.78rem; color: var(--color-text-muted);">{{ user.email }}</div>
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Rol -->
+                <td style="padding: 14px 16px;">
+                  {% set role = user.role %}
+                  <span style="display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+                    {% if role == 'SUPER_ADMIN' %}background: var(--color-tertiary-light); color: var(--color-tertiary);
+                    {% elif role == 'ENTITY_ADMIN' %}background: var(--color-primary-light); color: var(--color-primary);
+                    {% elif role == 'PLANNING_DIRECTOR' %}background: rgba(74,108,124,0.1); color: var(--color-info);
+                    {% elif role == 'FORMULATION_LEADER' %}background: rgba(194,149,59,0.12); color: var(--color-warning);
+                    {% else %}background: rgba(46,50,48,0.08); color: var(--color-text-muted);{% endif %}">
+                    {{ role_labels[role] }}
+                  </span>
+                </td>
+
+                <!-- Entidad -->
+                <td style="padding: 14px 16px; color: var(--color-text-muted); font-size: 0.85rem;">
+                  {% if user.entity %}{{ user.entity.name }}{% else %}<em>Plataforma Global</em>{% endif %}
+                </td>
+
+                <!-- Último acceso -->
+                <td style="padding: 14px 16px; text-align: center; font-size: 0.82rem; color: var(--color-text-muted);">
+                  {% if user.last_login %}
+                    {{ user.last_login.strftime('%d/%m/%Y') }}
+                  {% else %}
+                    <em>Nunca</em>
+                  {% endif %}
+                </td>
+
+                <!-- Estado -->
+                <td style="padding: 14px 16px; text-align: center;">
+                  {% if user.is_active %}
+                    <span style="display:inline-flex;align-items:center;gap:5px;font-size:0.8rem;font-weight:700;color:var(--color-success);">
+                      <span style="width:7px;height:7px;background:var(--color-success);border-radius:50%;"></span> Activo
+                    </span>
+                  {% else %}
+                    <span style="display:inline-flex;align-items:center;gap:5px;font-size:0.8rem;font-weight:700;color:var(--color-danger);">
+                      <span style="width:7px;height:7px;background:var(--color-danger);border-radius:50%;"></span> Inactivo
+                    </span>
+                  {% endif %}
+                </td>
+
+                <!-- Acciones -->
+                <td style="padding: 14px 16px; text-align: right;">
+                  <div style="display: inline-flex; gap: 8px;">
+                    <a href="{{ url_for('superadmin.user_edit', user_id=user.id | string) }}"
+                       class="btn btn-secondary btn-sm" style="padding: 5px 12px; font-size: 0.78rem;">
+                      <i class="fa-solid fa-pen-to-square" style="margin-right: 4px;"></i> Editar
+                    </a>
+                    <form method="POST"
+                          action="{{ url_for('superadmin.user_toggle', user_id=user.id | string) }}"
+                          onsubmit="return confirm('¿Confirmar {{ 'desactivar' if user.is_active else 'activar' }} a {{ user.full_name }}?')">
+                      <button type="submit" class="btn btn-sm"
+                              style="padding: 5px 12px; font-size: 0.78rem;
+                              {% if user.is_active %}background:rgba(176,92,74,0.1);color:var(--color-danger);border:1px solid rgba(176,92,74,0.2);
+                              {% else %}background:var(--color-primary-light);color:var(--color-primary);border:1px solid rgba(74,124,89,0.2);{% endif %}">
+                        {% if user.is_active %}
+                          <i class="fa-solid fa-ban" style="margin-right: 4px;"></i> Desactivar
+                        {% else %}
+                          <i class="fa-solid fa-circle-check" style="margin-right: 4px;"></i> Activar
+                        {% endif %}
+                      </button>
+                    </form>
+                  </div>
+                </td>
+
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div style="padding: 60px 24px; text-align: center; color: var(--color-text-muted);">
+        <i class="fa-solid fa-users-slash" style="font-size: 2.5rem; opacity: 0.3; display: block; margin-bottom: 16px;"></i>
+        <p style="font-style: italic; margin-bottom: 20px;">No se encontraron usuarios con los filtros aplicados.</p>
+        <a href="{{ url_for('superadmin.users') }}" class="btn btn-secondary btn-sm">Limpiar filtros</a>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}SIGIPLAN — Panel de Administración Global{% endblock %}
+
+{% block dashboard_title %}Panel de Administración Global{% endblock %}
+{% block dashboard_subtitle %}Estado general de la plataforma y todas las entidades registradas.{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content">
+
+  <!-- Fila 1: Métricas principales -->
+  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 28px;">
+
+    <div class="card" style="padding: 24px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+        <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px;">Entidades</span>
+        <span style="width: 36px; height: 36px; border-radius: 10px; background: var(--color-primary-light); display: flex; align-items: center; justify-content: center;">
+          <i class="fa-solid fa-building-columns" style="color: var(--color-primary); font-size: 0.9rem;"></i>
+        </span>
+      </div>
+      <div style="font-size: 2.25rem; font-weight: 800; color: var(--color-primary); line-height: 1;">{{ metrics.entities_active }}</div>
+      <div style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 6px;">
+        de {{ metrics.entities_total }} registradas
+      </div>
+    </div>
+
+    <div class="card" style="padding: 24px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+        <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px;">Usuarios</span>
+        <span style="width: 36px; height: 36px; border-radius: 10px; background: var(--color-tertiary-light); display: flex; align-items: center; justify-content: center;">
+          <i class="fa-solid fa-users" style="color: var(--color-tertiary); font-size: 0.9rem;"></i>
+        </span>
+      </div>
+      <div style="font-size: 2.25rem; font-weight: 800; color: var(--color-tertiary); line-height: 1;">{{ metrics.users_active }}</div>
+      <div style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 6px;">
+        de {{ metrics.users_total }} registrados
+      </div>
+    </div>
+
+    <div class="card" style="padding: 24px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+        <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px;">Iniciativas</span>
+        <span style="width: 36px; height: 36px; border-radius: 10px; background: rgba(74, 108, 124, 0.1); display: flex; align-items: center; justify-content: center;">
+          <i class="fa-solid fa-folder-open" style="color: var(--color-info); font-size: 0.9rem;"></i>
+        </span>
+      </div>
+      <div style="font-size: 2.25rem; font-weight: 800; color: var(--color-info); line-height: 1;">{{ metrics.initiatives_total }}</div>
+      <div style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 6px;">
+        proyectos activos en cartera
+      </div>
+    </div>
+
+    <div class="card" style="padding: 24px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+        <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px;">En Revisión</span>
+        <span style="width: 36px; height: 36px; border-radius: 10px; background: var(--color-tertiary-light); display: flex; align-items: center; justify-content: center;">
+          <i class="fa-solid fa-magnifying-glass-chart" style="color: var(--color-warning); font-size: 0.9rem;"></i>
+        </span>
+      </div>
+      <div style="font-size: 2.25rem; font-weight: 800; color: var(--color-warning); line-height: 1;">{{ metrics.initiatives_review }}</div>
+      <div style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 6px;">
+        esperando aprobación
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Fila 2: Distribución de iniciativas por estado -->
+  <div class="card" style="padding: 20px 24px; margin-bottom: 28px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+      <span style="font-size: 0.85rem; font-weight: 700; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
+        <i class="fa-solid fa-chart-simple" style="margin-right: 6px;"></i>Distribución de Iniciativas
+      </span>
+      <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="badge badge-draft">Borrador</span>
+          <span style="font-weight: 800; font-size: 1.1rem;">{{ metrics.initiatives_draft }}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="badge badge-progress">En Formulación</span>
+          <span style="font-weight: 800; font-size: 1.1rem;">{{ metrics.initiatives_progress }}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="badge badge-review">En Revisión</span>
+          <span style="font-weight: 800; font-size: 1.1rem;">{{ metrics.initiatives_review }}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="badge badge-approved">Aprobadas</span>
+          <span style="font-weight: 800; font-size: 1.1rem;">{{ metrics.initiatives_approved }}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="badge badge-rejected">Devueltas</span>
+          <span style="font-weight: 800; font-size: 1.1rem;">{{ metrics.initiatives_rejected }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fila 3: Tabla de entidades + Panel de usuarios recientes -->
+  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start;">
+
+    <!-- Tabla de Entidades -->
+    <div class="card" style="padding: 0; overflow: hidden;">
+      <div style="padding: 20px 24px; border-bottom: 1px solid var(--color-border); display: flex; align-items: center; justify-content: space-between;">
+        <h3 style="font-size: 1.05rem; margin: 0;">
+          <i class="fa-solid fa-building-flag" style="color: var(--color-primary); margin-right: 8px;"></i>
+          Entidades Registradas
+        </h3>
+        <span style="font-size: 0.8rem; color: var(--color-text-muted);">{{ entities_stats | length }} en total</span>
+      </div>
+
+      {% if entities_stats %}
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+            <thead>
+              <tr style="background: var(--color-bg-base);">
+                <th style="padding: 12px 20px; text-align: left; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Entidad</th>
+                <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Plan</th>
+                <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Usuarios</th>
+                <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Iniciativas</th>
+                <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Aprobadas</th>
+                <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); letter-spacing: 0.5px; font-weight: 700;">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in entities_stats %}
+                <tr style="border-top: 1px solid var(--color-border); transition: background 0.15s;" onmouseover="this.style.background='var(--color-bg-base)'" onmouseout="this.style.background=''">
+                  <td style="padding: 14px 20px;">
+                    <div style="font-weight: 700; color: var(--color-text-dark);">{{ row.entity.name }}</div>
+                    <div style="font-size: 0.78rem; color: var(--color-text-muted); margin-top: 2px;">{{ row.entity.tax_id }}</div>
+                  </td>
+                  <td style="padding: 14px 16px; text-align: center;">
+                    <span style="
+                      display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+                      {% if row.entity.subscription_plan == 'Enterprise' %}
+                        background: rgba(112,92,48,0.12); color: var(--color-tertiary);
+                      {% elif row.entity.subscription_plan == 'Premium' %}
+                        background: var(--color-primary-light); color: var(--color-primary);
+                      {% else %}
+                        background: rgba(46,50,48,0.08); color: var(--color-text-muted);
+                      {% endif %}
+                    ">{{ row.entity.subscription_plan }}</span>
+                  </td>
+                  <td style="padding: 14px 16px; text-align: center; font-weight: 700;">{{ row.users_count }}</td>
+                  <td style="padding: 14px 16px; text-align: center; font-weight: 700;">{{ row.initiatives_count }}</td>
+                  <td style="padding: 14px 16px; text-align: center;">
+                    <span style="font-weight: 700; color: var(--color-primary);">{{ row.initiatives_approved }}</span>
+                  </td>
+                  <td style="padding: 14px 16px; text-align: center;">
+                    {% if row.entity.is_active %}
+                      <span style="display:inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 700; color: var(--color-success);">
+                        <span style="width: 7px; height: 7px; background: var(--color-success); border-radius: 50%; display: inline-block;"></span> Activa
+                      </span>
+                    {% else %}
+                      <span style="display:inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 700; color: var(--color-danger);">
+                        <span style="width: 7px; height: 7px; background: var(--color-danger); border-radius: 50%; display: inline-block;"></span> Inactiva
+                      </span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div style="padding: 40px 24px; text-align: center; color: var(--color-text-muted);">
+          <i class="fa-solid fa-building-circle-exclamation" style="font-size: 2rem; margin-bottom: 12px; opacity: 0.4;"></i>
+          <p style="font-style: italic;">No hay entidades registradas aún.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Panel derecho: Usuarios recientes + Acciones rápidas -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+
+      <!-- Acciones Rápidas -->
+      <div class="card" style="padding: 20px 24px;">
+        <h3 style="font-size: 1rem; margin-bottom: 16px; color: var(--color-text-dark);">
+          <i class="fa-solid fa-bolt" style="color: var(--color-warning); margin-right: 8px;"></i>Acciones Rápidas
+        </h3>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <a href="#" class="btn btn-primary btn-sm" style="justify-content: flex-start;">
+            <i class="fa-solid fa-plus" style="margin-right: 8px;"></i> Nueva Entidad
+          </a>
+          <a href="#" class="btn btn-secondary btn-sm" style="justify-content: flex-start;">
+            <i class="fa-solid fa-user-plus" style="margin-right: 8px;"></i> Crear Administrador
+          </a>
+          <a href="#" class="btn btn-secondary btn-sm" style="justify-content: flex-start;">
+            <i class="fa-solid fa-scroll" style="margin-right: 8px;"></i> Ver Logs de Auditoría
+          </a>
+        </div>
+      </div>
+
+      <!-- Usuarios recientes -->
+      <div class="card" style="padding: 0; overflow: hidden;">
+        <div style="padding: 16px 20px; border-bottom: 1px solid var(--color-border);">
+          <h3 style="font-size: 1rem; margin: 0;">
+            <i class="fa-solid fa-user-clock" style="color: var(--color-tertiary); margin-right: 8px;"></i>
+            Usuarios Recientes
+          </h3>
+        </div>
+        {% if recent_users %}
+          <ul style="list-style: none; padding: 0; margin: 0;">
+            {% for user in recent_users %}
+              <li style="padding: 12px 20px; border-top: 1px solid var(--color-border); display: flex; align-items: center; gap: 12px;">
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--color-primary-light); color: var(--color-primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; flex-shrink: 0;">
+                  {{ user.first_name[0] | upper }}
+                </div>
+                <div style="min-width: 0;">
+                  <div style="font-weight: 700; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ user.full_name }}</div>
+                  <div style="font-size: 0.75rem; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    {% if user.entity %}{{ user.entity.name }}{% else %}Plataforma Global{% endif %}
+                  </div>
+                </div>
+                <span style="
+                  margin-left: auto; flex-shrink: 0; padding: 2px 8px; border-radius: 20px; font-size: 0.65rem; font-weight: 700; white-space: nowrap;
+                  {% if user.is_active %}background: var(--color-primary-light); color: var(--color-primary);
+                  {% else %}background: rgba(176,92,74,0.1); color: var(--color-danger);{% endif %}
+                ">
+                  {% if user.is_active %}Activo{% else %}Inactivo{% endif %}
+                </span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div style="padding: 24px; text-align: center; color: var(--color-text-muted); font-style: italic; font-size: 0.875rem;">
+            Sin usuarios registrados.
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,9 @@
+# Normaliza finales de línea a LF en el repo (el VPS es Linux).
+* text=auto eol=lf
+
+# Binarios: sin conversión
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
