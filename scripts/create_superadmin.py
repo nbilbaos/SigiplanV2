@@ -10,6 +10,12 @@ Uso (dentro del contenedor):
   docker compose exec app python scripts/create_superadmin.py
 """
 import os
+import sys
+
+# Permite ejecutar el script directamente (python scripts/create_superadmin.py)
+# desde /app: añade la raíz del proyecto a sys.path para importar el paquete `app`.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from app import create_app
 from app.models.user import User
 
