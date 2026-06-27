@@ -11,6 +11,7 @@
   <div style="max-width:580px;">
     <div class="card" style="padding:36px;">
       <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <div class="form-group">
           <label class="form-label" for="name">Nombre de la Fuente <span style="color:var(--color-danger);">*</span></label>

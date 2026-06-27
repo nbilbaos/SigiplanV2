@@ -5,243 +5,158 @@
 
 {% block dashboard_content %}
 <div class="dashboard-content">
-
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
-    <a href="{{ url_for('formulation.index') }}" style="font-size:0.85rem;color:var(--color-text-muted);text-decoration:none;">
-      <i class="fa-solid fa-arrow-left" style="margin-right:6px;"></i> Volver a la mesa de formulación
-    </a>
-    <span class="badge {% if init.status == 'DRAFT' %}badge-draft{% elif init.status == 'IN_PROGRESS' %}badge-progress{% elif init.status == 'UNDER_REVIEW' %}badge-review{% elif init.status == 'APPROVED' %}badge-approved{% elif init.status == 'REJECTED' %}badge-rejected{% else %}badge-draft{% endif %}" style="font-size:0.78rem;padding:6px 14px;">
-      {{ init.get_status_display() }}
-    </span>
+  <div class="section-header">
+    <div>
+      <a href="{{ url_for('formulation.index') }}" style="color:var(--color-text-muted);font-size:0.86rem;">
+        <i class="fa-solid fa-arrow-left" style="margin-right:6px;"></i> Volver a la mesa
+      </a>
+      <h2 class="section-title" style="margin-top:10px;">Ficha técnica y documentos</h2>
+      <p class="section-subtitle">Espacio de trabajo para completar antecedentes, adjuntar respaldos y enviar a revisión.</p>
+    </div>
+    <span class="status-pill status-{{ init.status }}">{{ init.get_status_display() }}</span>
   </div>
 
-  <!-- Observaciones de rechazo -->
   {% if init.status == 'REJECTED' and rejection %}
-    <div class="card" style="padding:20px 24px;margin-bottom:20px;border-left:4px solid var(--color-danger);background:rgba(176,92,74,0.05);">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <i class="fa-solid fa-circle-exclamation" style="color:var(--color-danger);"></i>
-        <h3 style="font-size:0.9rem;margin:0;color:var(--color-danger);">Observaciones del Revisor</h3>
-      </div>
-      <p style="font-size:0.9rem;line-height:1.6;margin-bottom:6px;">{{ rejection.details }}</p>
-      <div style="font-size:0.76rem;color:var(--color-text-muted);">
-        {% if rejection.user %}{{ rejection.user.full_name }} · {% endif %}{{ rejection.timestamp.strftime('%d/%m/%Y %H:%M') }}
-      </div>
+    <div class="risk-banner danger" style="margin-bottom:18px;">
+      <i class="fa-solid fa-circle-exclamation"></i>
+      <span>
+        <span class="risk-label">Observaciones del revisor</span>
+        <span style="display:block;margin-top:4px;">{{ rejection.details }}</span>
+      </span>
     </div>
   {% endif %}
 
-  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:start;">
-
-    <!-- Columna izquierda: ficha técnica + adjuntos -->
-    <div style="display:flex;flex-direction:column;gap:20px;">
-
-      <!-- Ficha técnica -->
-      <div class="card" style="padding:28px;">
-        <h3 style="font-size:0.9rem;font-weight:700;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:18px;">
-          <i class="fa-solid fa-pen-ruler" style="margin-right:6px;"></i> Ficha Técnica
-        </h3>
+  <div class="executive-grid">
+    <div class="panel-stack">
+      <div class="action-panel">
+        <div class="panel-label">Ficha técnica</div>
         {% if editable %}
-          <form method="POST" action="{{ url_for('formulation.edit_technical', initiative_id=init.id|string) }}">
+          <form method="POST" action="{{ url_for('formulation.edit_technical', initiative_id=init.id|string) }}" style="margin-top:16px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
               <label class="form-label" for="title">Título</label>
               <input type="text" id="title" name="title" class="form-control" value="{{ init.title }}" required>
             </div>
             <div class="form-group">
-              <label class="form-label" for="estimated_cost">Costo Estimado (CLP)</label>
-              <input type="text" id="estimated_cost" name="estimated_cost" class="form-control"
-                     value="{{ '%0.0f'|format(init.estimated_cost or 0) }}">
+              <label class="form-label" for="estimated_cost">Costo estimado (CLP)</label>
+              <input type="text" id="estimated_cost" name="estimated_cost" class="form-control" value="{{ '%0.0f'|format(init.estimated_cost or 0) }}">
             </div>
             <div class="form-group">
-              <label class="form-label" for="description">Descripción Técnica</label>
+              <label class="form-label" for="description">Descripción técnica</label>
               <textarea id="description" name="description" class="form-control" rows="7" required>{{ init.description }}</textarea>
             </div>
-            <div style="display:flex;justify-content:flex-end;">
-              <button type="submit" class="btn btn-primary btn-sm">
-                <i class="fa-solid fa-floppy-disk" style="margin-right:6px;"></i> Guardar Ficha
-              </button>
-            </div>
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-floppy-disk" style="margin-right:6px;"></i> Guardar ficha</button>
           </form>
         {% else %}
-          <div style="font-size:0.8rem;color:var(--color-text-muted);margin-bottom:14px;font-style:italic;">
-            <i class="fa-solid fa-lock" style="margin-right:6px;"></i>
-            La ficha está bloqueada mientras la iniciativa está {{ init.get_status_display()|lower }}.
-          </div>
-          <div style="margin-bottom:14px;"><strong>Costo estimado:</strong> ${{ "{:,.0f}".format(init.estimated_cost or 0) }}</div>
-          <p style="line-height:1.7;">{{ init.description }}</p>
+          <p style="margin-top:14px;color:var(--color-text-muted);"><i class="fa-solid fa-lock"></i> La ficha está bloqueada mientras la iniciativa está {{ init.get_status_display()|lower }}.</p>
+          <p style="margin-top:12px;line-height:1.75;">{{ init.description }}</p>
         {% endif %}
       </div>
 
-      <!-- Adjuntos -->
-      <div class="card" style="padding:28px;">
-        <h3 style="font-size:0.9rem;font-weight:700;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">
-          <i class="fa-solid fa-paperclip" style="margin-right:6px;"></i> Documentos Adjuntos
-          <span style="color:var(--color-text-muted);">({{ init.attachments|length }})</span>
-        </h3>
-        <p style="font-size:0.78rem;color:var(--color-text-muted);margin-bottom:16px;">PDF, Office, imágenes o ZIP — hasta 16 MB por archivo.</p>
-
+      <div class="action-panel">
+        <div class="section-header">
+          <div>
+            <div class="panel-label">Documentos adjuntos</div>
+            <h3 style="margin:4px 0 0;">{{ init.attachments|length }} respaldo{{ '' if init.attachments|length == 1 else 's' }}</h3>
+          </div>
+        </div>
         {% if init.attachments %}
-          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:{{ '0' if not editable else '20px' }};">
-            {% for att in init.attachments %}
-              <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--color-bg-base);border-radius:var(--border-radius-md);">
-                {% set ext = att.name.rsplit('.', 1)[1]|lower if '.' in att.name else '' %}
-                <i class="fa-solid
-                  {% if ext == 'pdf' %}fa-file-pdf" style="color:#b05c4a;
-                  {% elif ext in ['xls','xlsx','csv'] %}fa-file-excel" style="color:#3b6347;
-                  {% elif ext in ['doc','docx'] %}fa-file-word" style="color:#4a6c7c;
-                  {% elif ext in ['png','jpg','jpeg','gif'] %}fa-file-image" style="color:#c2953b;
-                  {% elif ext == 'zip' %}fa-file-zipper" style="color:var(--color-text-muted);
-                  {% else %}fa-file-lines" style="color:var(--color-text-muted);{% endif %}font-size:1.3rem;width:22px;text-align:center;"></i>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-weight:700;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ att.name }}</div>
-                  <div style="font-size:0.74rem;color:var(--color-text-muted);">
-                    {{ (att.size_bytes / 1024)|round(1) }} KB
-                    {% if att.uploaded_by %} · {{ att.uploaded_by.full_name }}{% endif %}
-                    {% if att.uploaded_at %} · {{ att.uploaded_at.strftime('%d/%m/%Y') }}{% endif %}
-                  </div>
-                </div>
-                <a href="{{ url_for('formulation.download', initiative_id=init.id|string, file_id=att.file_id) }}"
-                   class="btn btn-secondary btn-sm" style="padding:5px 12px;font-size:0.76rem;">
-                  <i class="fa-solid fa-download"></i>
-                </a>
-                {% if editable %}
-                  <form method="POST" action="{{ url_for('formulation.attachment_delete', initiative_id=init.id|string, file_id=att.file_id) }}"
-                        onsubmit="return confirm('¿Eliminar «{{ att.name }}»?')" style="display:inline;">
-                    <button type="submit" class="btn btn-sm" style="padding:5px 12px;font-size:0.76rem;background:rgba(176,92,74,0.1);color:var(--color-danger);border:1px solid rgba(176,92,74,0.2);">
-                      <i class="fa-solid fa-trash-can"></i>
-                    </button>
-                  </form>
-                {% endif %}
-              </div>
-            {% endfor %}
+          <div class="table-shell">
+            <table class="data-table">
+              <thead><tr><th>Archivo</th><th>Carga</th><th>Tamaño</th><th></th></tr></thead>
+              <tbody>
+                {% for att in init.attachments %}
+                  <tr>
+                    <td><strong>{{ att.name }}</strong></td>
+                    <td>{% if att.uploaded_by %}{{ att.uploaded_by.full_name }}{% endif %}{% if att.uploaded_at %}<br><span style="color:var(--color-text-muted);font-size:0.78rem;">{{ att.uploaded_at.strftime('%d/%m/%Y') }}</span>{% endif %}</td>
+                    <td>{{ (att.size_bytes / 1024)|round(1) }} KB</td>
+                    <td style="text-align:right;">
+                      <a href="{{ url_for('formulation.download', initiative_id=init.id|string, file_id=att.file_id) }}" class="btn btn-secondary btn-sm"><i class="fa-solid fa-download"></i></a>
+                      {% if editable %}
+                        <form method="POST" action="{{ url_for('formulation.attachment_delete', initiative_id=init.id|string, file_id=att.file_id) }}" onsubmit="return confirm('¿Eliminar «{{ att.name }}»?')" style="display:inline;">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                          <button type="submit" class="btn btn-sm" style="background:rgba(188,74,48,0.10);color:var(--color-danger);border:1px solid rgba(188,74,48,0.22);"><i class="fa-solid fa-trash-can"></i></button>
+                        </form>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
         {% else %}
-          <p style="font-size:0.85rem;color:var(--color-text-muted);font-style:italic;margin-bottom:{{ '0' if not editable else '20px' }};">Sin documentos cargados.</p>
+          <div class="empty-state"><i class="fa-solid fa-paperclip"></i> Sin documentos cargados.</div>
         {% endif %}
 
         {% if editable %}
-          <form method="POST" action="{{ url_for('formulation.upload', initiative_id=init.id|string) }}"
-                enctype="multipart/form-data" style="display:flex;gap:10px;align-items:center;padding-top:16px;border-top:1px solid var(--color-border);">
-            <input type="file" name="document" class="form-control" style="flex:1;padding:7px 10px;" required>
-            <button type="submit" class="btn btn-primary btn-sm" style="white-space:nowrap;">
-              <i class="fa-solid fa-upload" style="margin-right:6px;"></i> Subir
-            </button>
+          <form method="POST" action="{{ url_for('formulation.upload', initiative_id=init.id|string) }}" enctype="multipart/form-data" style="display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="file" name="document" class="form-control" style="flex:1;min-width:240px;" required>
+            <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-upload" style="margin-right:6px;"></i> Subir</button>
           </form>
         {% endif %}
       </div>
     </div>
 
-    <!-- Columna derecha: acciones -->
-    <div style="display:flex;flex-direction:column;gap:20px;">
-
-      <!-- Enviar a revisión -->
+    <div class="panel-stack">
       {% if can_submit %}
-        <div class="card" style="padding:24px;border:1px solid rgba(74,124,89,0.3);">
-          <h3 style="font-size:0.88rem;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
-            <i class="fa-solid fa-paper-plane" style="color:var(--color-primary);"></i> Enviar a Revisión
-          </h3>
-          <p style="font-size:0.8rem;color:var(--color-text-muted);margin-bottom:14px;">
-            La iniciativa pasará a manos del Director de Planificación para su aprobación.
-          </p>
+        <div class="action-panel is-dark">
+          <div class="panel-label">Enviar a revisión</div>
+          <h3 style="margin-top:8px;">Listo para decisión técnica</h3>
+          <p style="margin:10px 0 14px;">Incluye un comentario para orientar la revisión del Director de Planificación.</p>
           <form method="POST" action="{{ url_for('formulation.submit_for_review', initiative_id=init.id|string) }}">
-            <textarea name="comment" class="form-control" rows="3" required
-                      placeholder="Comentario para el revisor (obligatorio)" style="margin-bottom:12px;"></textarea>
-            <button type="submit" class="btn btn-primary btn-sm" style="width:100%;">
-              <i class="fa-solid fa-paper-plane" style="margin-right:6px;"></i> Enviar a Revisión
-            </button>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <textarea name="comment" class="form-control" rows="3" required placeholder="Comentario obligatorio" style="margin-bottom:12px;"></textarea>
+            <button type="submit" class="btn btn-primary btn-sm" style="width:100%;">Enviar a revisión</button>
           </form>
         </div>
-      {% elif init.status == 'UNDER_REVIEW' %}
-        <div class="card" style="padding:24px;text-align:center;">
-          <i class="fa-solid fa-hourglass-half" style="font-size:1.8rem;color:var(--color-warning);margin-bottom:10px;"></i>
-          <p style="font-size:0.85rem;color:var(--color-text-muted);">En revisión por el Director de Planificación.</p>
-        </div>
-      {% elif init.status == 'APPROVED' %}
-        <div class="card" style="padding:24px;text-align:center;">
-          <i class="fa-solid fa-circle-check" style="font-size:1.8rem;color:#3b6347;margin-bottom:10px;"></i>
-          <p style="font-size:0.85rem;color:var(--color-text-muted);">Iniciativa aprobada.</p>
-        </div>
       {% elif init.status == 'REJECTED' %}
-        <div class="card" style="padding:24px;border:1px solid rgba(194,149,59,0.35);">
-          <h3 style="font-size:0.88rem;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
-            <i class="fa-solid fa-arrow-rotate-left" style="color:var(--color-warning);"></i> Retomar Formulación
-          </h3>
-          <p style="font-size:0.8rem;color:var(--color-text-muted);margin-bottom:14px;">
-            Reactiva la iniciativa para aplicar las correcciones solicitadas y volver a enviarla a revisión.
-          </p>
-          <form method="POST" action="{{ url_for('formulation.resume', initiative_id=init.id|string) }}">
-            <button type="submit" class="btn btn-primary btn-sm" style="width:100%;background:var(--color-warning);">
-              <i class="fa-solid fa-arrow-rotate-left" style="margin-right:6px;"></i> Retomar formulación
-            </button>
+        <div class="action-panel">
+          <div class="panel-label">Retomar flujo</div>
+          <h3>Corregir observaciones</h3>
+          <form method="POST" action="{{ url_for('formulation.resume', initiative_id=init.id|string) }}" style="margin-top:12px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm" style="width:100%;">Retomar formulación</button>
           </form>
         </div>
       {% endif %}
 
-      <!-- Asignar formuladores (coordinador) -->
       {% if is_leader %}
-        <div class="card" style="padding:24px;">
-          <h3 style="font-size:0.85rem;font-weight:700;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px;">
-            <i class="fa-solid fa-users-gear" style="margin-right:6px;"></i> Formuladores Asignados
-          </h3>
+        <div class="action-panel">
+          <div class="panel-label">Equipo técnico</div>
+          <h3 style="margin-top:6px;">Formuladores asignados</h3>
           {% if formulators %}
-            <form method="POST" action="{{ url_for('formulation.assign_formulators', initiative_id=init.id|string) }}">
+            <form method="POST" action="{{ url_for('formulation.assign_formulators', initiative_id=init.id|string) }}" style="margin-top:14px;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
-                {% for u in formulators %}
-                  <label style="display:flex;align-items:center;gap:10px;font-size:0.85rem;cursor:pointer;">
-                    <input type="checkbox" name="formulators" value="{{ u.id|string }}"
-                           {% if u.id|string in assigned_ids %}checked{% endif %}
-                           style="width:17px;height:17px;accent-color:var(--color-primary);">
-                    {{ u.full_name }}
+                {% for user in formulators %}
+                  <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                    <input type="checkbox" name="formulators" value="{{ user.id|string }}" {% if user.id|string in assigned_ids %}checked{% endif %} style="width:17px;height:17px;accent-color:var(--color-primary);">
+                    {{ user.full_name }}
                   </label>
                 {% endfor %}
               </div>
-              <button type="submit" class="btn btn-secondary btn-sm" style="width:100%;">
-                <i class="fa-solid fa-check" style="margin-right:6px;"></i> Guardar Asignación
-              </button>
+              <button type="submit" class="btn btn-secondary btn-sm" style="width:100%;">Guardar asignación</button>
             </form>
           {% else %}
-            <p style="font-size:0.82rem;color:var(--color-text-muted);font-style:italic;">No hay formuladores técnicos en la entidad.</p>
-          {% endif %}
-        </div>
-      {% else %}
-        <div class="card" style="padding:24px;">
-          <h3 style="font-size:0.85rem;font-weight:700;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px;">Equipo</h3>
-          {% if init.assigned_formulators %}
-            <div style="display:flex;flex-direction:column;gap:8px;">
-              {% for f in init.assigned_formulators %}
-                {% if f %}
-                  <div style="display:flex;align-items:center;gap:8px;font-size:0.85rem;">
-                    <span style="width:26px;height:26px;border-radius:50%;background:var(--color-primary-light);color:var(--color-primary);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.72rem;">{{ f.first_name[0]|upper }}</span>
-                    {{ f.full_name }}
-                  </div>
-                {% endif %}
-              {% endfor %}
-            </div>
-          {% else %}
-            <p style="font-size:0.82rem;color:var(--color-text-muted);font-style:italic;">Sin formuladores asignados.</p>
+            <p style="color:var(--color-text-muted);margin-top:10px;">No hay formuladores técnicos activos.</p>
           {% endif %}
         </div>
       {% endif %}
 
-      <!-- Datos de referencia -->
-      <div class="card" style="padding:24px;">
-        <h3 style="font-size:0.85rem;font-weight:700;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px;">Referencia</h3>
-        <div style="margin-bottom:12px;">
-          <div style="font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:3px;">Coordinador</div>
-          <div style="font-weight:700;font-size:0.85rem;">{{ init.formulation_leader.full_name if init.formulation_leader else '—' }}</div>
-        </div>
-        <div style="margin-bottom:12px;">
-          <div style="font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:3px;">Plazo</div>
-          <div style="font-weight:700;font-size:0.85rem;">{% if init.deadline %}{{ init.deadline.strftime('%d/%m/%Y') }}{% else %}Sin definir{% endif %}</div>
-        </div>
-        <div>
-          <div style="font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:5px;">Fuentes</div>
-          {% for s in init.funding_sources %}
-            {% if s %}<div style="font-size:0.82rem;font-weight:600;">{{ s.code }}</div>{% endif %}
-          {% else %}
-            <div style="font-size:0.82rem;color:var(--color-text-muted);">—</div>
-          {% endfor %}
+      <div class="action-panel">
+        <div class="panel-label">Referencia ejecutiva</div>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:14px;">
+          <div><strong>Costo</strong><br><span style="color:var(--color-text-muted);">${{ "{:,.0f}".format(init.estimated_cost or 0) }}</span></div>
+          <div><strong>Plazo</strong><br><span style="color:var(--color-text-muted);">{% if init.deadline %}{{ init.deadline.strftime('%d/%m/%Y') }}{% else %}Sin definir{% endif %}</span></div>
+          <div><strong>Coordinador</strong><br><span style="color:var(--color-text-muted);">{{ init.formulation_leader.full_name if init.formulation_leader else 'Sin asignar' }}</span></div>
+          <div><strong>Fuentes</strong><br>
+            {% for source in init.funding_sources %}
+              {% if source %}<span class="status-pill status-DRAFT">{{ source.code }}</span>{% endif %}
+            {% else %}<span style="color:var(--color-text-muted);">Sin fuente</span>{% endfor %}
+          </div>
         </div>
       </div>
-
     </div>
   </div>
 </div>

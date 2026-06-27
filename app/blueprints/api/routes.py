@@ -2,6 +2,7 @@ from flask import jsonify, request
 from flask_login import login_required, current_user
 from app.blueprints.api import api_bp
 from app.utils.decorators import role_required
+from app.utils.executive import build_executive_context
 
 # Roles con entidad que pueden consultar datos de iniciativas
 INITIATIVE_ROLES = [
@@ -24,7 +25,7 @@ def _scoped_initiatives():
     from app.models.initiative import Initiative
     q = Initiative.objects(entity=current_user.entity, is_deleted=False)
     if current_user.role == 'TECHNICAL_FORMULATOR':
-        q = q.filter(assigned_formulators=current_user.id)
+        q = q.filter(assigned_formulators=current_user._get_current_object())
     return q
 
 
@@ -107,7 +108,7 @@ def funding_sources():
     items = []
     for s in sources:
         usage = Initiative.objects(
-            entity=current_user.entity, is_deleted=False, funding_sources=s.id).count()
+            entity=current_user.entity, is_deleted=False, funding_sources=s).count()
         items.append({
             'id': str(s.id),
             'name': s.name,
@@ -178,3 +179,25 @@ def dashboard_metrics():
         })
 
     return jsonify({'role': role, 'metrics': {}})
+
+
+@api_bp.route('/executive-metrics')
+@login_required
+@role_required('SUPER_ADMIN', 'ENTITY_ADMIN', 'PLANNING_DIRECTOR', 'FORMULATION_LEADER', 'TECHNICAL_FORMULATOR')
+def executive_metrics():
+    metrics = build_executive_context(current_user)
+    return jsonify({
+        'scope': metrics['scope_label'],
+        'initiatives_total': metrics['initiatives_total'],
+        'estimated_total': metrics['estimated_total'],
+        'status_counts': metrics['status_counts'],
+        'risks': [
+            {key: item[key] for key in ('key', 'label', 'value', 'tone')}
+            for item in metrics['risks']
+        ],
+        'funding': {
+            'total': metrics['funding_total'],
+            'allocated': metrics['funding_allocated'],
+            'available': metrics['funding_available'],
+        },
+    })

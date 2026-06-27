@@ -88,6 +88,7 @@
                     <form method="POST"
                           action="{{ url_for('superadmin.entity_toggle', entity_id=row.entity.id | string) }}"
                           onsubmit="return confirm('¿Confirmar {{ 'desactivar' if row.entity.is_active else 'activar' }} la entidad {{ row.entity.name }}?')">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                       <button type="submit" class="btn btn-sm"
                               style="padding: 5px 12px; font-size: 0.78rem;
                               {% if row.entity.is_active %}

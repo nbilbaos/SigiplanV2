@@ -1,8 +1,13 @@
-from datetime import datetime
-from flask import render_template, redirect, url_for, flash, request, abort
+import csv
+import io
+import re
+from datetime import datetime, timedelta
+from flask import render_template, redirect, url_for, flash, request, abort, Response
 from flask_login import login_required, current_user
+from mongoengine import Q
 from app.blueprints.planning import planning_bp
 from app.utils.decorators import role_required
+from app.utils.executive import build_executive_context, next_action_for
 
 # Roles con acceso de lectura al módulo (la formulación tiene su propio blueprint)
 READ_ROLES = ['PLANNING_DIRECTOR', 'FORMULATION_LEADER', 'TECHNICAL_FORMULATOR']
@@ -31,8 +36,16 @@ def _base_query(include_deleted=False):
 def _scoped_visible(query):
     """El Formulador Técnico solo ve las iniciativas que tiene asignadas."""
     if current_user.role == 'TECHNICAL_FORMULATOR':
-        return query.filter(assigned_formulators=current_user.id)
+        return query.filter(assigned_formulators=current_user._get_current_object())
     return query
+
+
+def _portfolio_query_for_user():
+    from app.models.initiative import Initiative
+    q = Initiative.objects(entity=current_user.entity, is_deleted=False)
+    if current_user.role == 'TECHNICAL_FORMULATOR':
+        q = q.filter(assigned_formulators=current_user._get_current_object())
+    return q
 
 
 def _get_initiative(initiative_id, include_deleted=False):
@@ -138,17 +151,64 @@ def _parse_initiative_form(form):
 def initiatives():
     status_filter = request.args.get('status', '').strip()
     search        = request.args.get('q', '').strip()
+    responsible   = request.args.get('responsible', '').strip()
+    funding_id    = request.args.get('funding', '').strip()
+    due_filter    = request.args.get('due', '').strip()
+    sort          = request.args.get('sort', '-updated_at').strip()
+    post_filter = None
 
     query = _scoped_visible(_base_query())
     if status_filter in STATUS_LABELS:
         query = query.filter(status=status_filter)
     if search:
+        safe_search = re.escape(search)
         query = query.filter(__raw__={'$or': [
-            {'code':  {'$regex': search, '$options': 'i'}},
-            {'title': {'$regex': search, '$options': 'i'}},
+            {'code':  {'$regex': safe_search, '$options': 'i'}},
+            {'title': {'$regex': safe_search, '$options': 'i'}},
         ]})
+    if responsible:
+        from app.models.user import User
+        user = User.objects(id=responsible, entity=current_user.entity).first()
+        if user:
+            query = query.filter(
+                Q(planning_director=user) |
+                Q(formulation_leader=user) |
+                Q(assigned_formulators=user)
+            )
+    if funding_id:
+        from app.models.funding import FundingSource
+        source = FundingSource.objects(id=funding_id, entity=current_user.entity).first()
+        if source:
+            query = query.filter(funding_sources=source)
+    today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    if due_filter == 'overdue':
+        query = query.filter(deadline__lt=today, status__nin=['APPROVED', 'ARCHIVED'])
+    elif due_filter == 'due_soon':
+        query = query.filter(deadline__gte=today, deadline__lte=today + timedelta(days=30),
+                             status__nin=['APPROVED', 'ARCHIVED'])
+    elif due_filter == 'no_deadline':
+        query = query.filter(deadline=None)
+    elif due_filter == 'no_formulators':
+        post_filter = lambda item: (
+            item.status not in ('APPROVED', 'ARCHIVED') and
+            not [f for f in item.assigned_formulators if f]
+        )
+    elif due_filter == 'no_funding':
+        post_filter = lambda item: (
+            item.status not in ('APPROVED', 'ARCHIVED') and
+            not [s for s in item.funding_sources if s]
+        )
 
-    initiatives = query.order_by('-updated_at')
+    sort_map = {
+        '-updated_at': '-updated_at',
+        'deadline': 'deadline',
+        '-estimated_cost': '-estimated_cost',
+        'status': 'status',
+        'code': 'code',
+    }
+    initiatives = query.order_by(sort_map.get(sort, '-updated_at'))
+    if post_filter:
+        initiatives = [item for item in initiatives if post_filter(item)]
 
     # Conteo por estado para los chips de filtro (sobre el universo visible)
     visible = _scoped_visible(_base_query())
@@ -161,6 +221,12 @@ def initiatives():
                            counts=counts,
                            selected_status=status_filter,
                            search=search,
+                           responsible=responsible,
+                           funding_id=funding_id,
+                           due_filter=due_filter,
+                           sort=sort,
+                           team=_entity_team(),
+                           funding_sources=_entity_funding(),
                            can_manage=current_user.role == 'PLANNING_DIRECTOR')
 
 
@@ -230,9 +296,11 @@ def initiative_detail(initiative_id):
     init = _get_initiative(initiative_id)
     # Bitácora en orden cronológico inverso
     trail = sorted(init.audit_trail, key=lambda e: e.timestamp, reverse=True)
+    next_action = next_action_for(init, current_user.role)
     return render_template('planning/initiative_detail.html',
                            init=init, trail=trail,
                            status_labels=STATUS_LABELS,
+                           next_action=next_action,
                            can_manage=current_user.role == 'PLANNING_DIRECTOR')
 
 
@@ -417,7 +485,7 @@ def funding():
     for s in sources:
         usage[str(s.id)] = Initiative.objects(
             entity=current_user.entity, is_deleted=False,
-            funding_sources=s.id).count()
+            funding_sources=s).count()
 
     total_budget    = sum(s.total_budget for s in sources if s.is_active)
     total_allocated = sum(s.allocated_budget for s in sources if s.is_active)
@@ -444,3 +512,48 @@ def org_chart():
         'TECHNICAL_FORMULATOR': list(users.filter(role='TECHNICAL_FORMULATOR').order_by('first_name')),
     }
     return render_template('planning/org_chart.html', by_role=by_role)
+
+
+@planning_bp.route('/portfolio/export.csv')
+@login_required
+@role_required('ENTITY_ADMIN', 'PLANNING_DIRECTOR')
+def portfolio_export_csv():
+    initiatives = _portfolio_query_for_user().order_by('-updated_at')
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        'Código', 'Título', 'Estado', 'Costo estimado CLP', 'Plazo',
+        'Director', 'Coordinador', 'Formuladores', 'Fuentes', 'Última actualización'
+    ])
+    for init in initiatives:
+        writer.writerow([
+            init.code,
+            init.title,
+            init.get_status_display(),
+            f'{init.estimated_cost or 0:.0f}',
+            init.deadline.strftime('%d/%m/%Y') if init.deadline else '',
+            init.planning_director.full_name if init.planning_director else '',
+            init.formulation_leader.full_name if init.formulation_leader else '',
+            ', '.join(f.full_name for f in init.assigned_formulators if f),
+            ', '.join(s.code for s in init.funding_sources if s),
+            init.updated_at.strftime('%d/%m/%Y %H:%M') if init.updated_at else '',
+        ])
+    csv_data = '\ufeff' + output.getvalue()
+    filename = f"cartera_sigiplan_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+    return Response(
+        csv_data,
+        mimetype='text/csv; charset=utf-8',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+    )
+
+
+@planning_bp.route('/report/executive')
+@login_required
+@role_required('ENTITY_ADMIN', 'PLANNING_DIRECTOR')
+def executive_report():
+    metrics = build_executive_context(current_user)
+    return render_template(
+        'planning/executive_report.html',
+        metrics=metrics,
+        generated_at=datetime.utcnow(),
+    )

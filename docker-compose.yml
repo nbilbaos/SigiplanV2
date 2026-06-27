@@ -19,7 +19,7 @@ services:
         condition: service_healthy
     volumes:
       # Persistencia de los archivos subidos (adjuntos de iniciativas)
-      - uploads:/app/app/static/uploads
+      - uploads:/app/uploads
     networks:
       - internal   # acceso privado a Mongo
       - web        # alcanzable SOLO por el nginx compartido (no publica puertos)

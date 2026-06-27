@@ -1,0 +1,29 @@
+# ── SIGIPLAN · reverse proxy independiente con HTTPS automático ───────────────
+# Para uso con DNS de Vultr apuntando directo al VPS.
+# Caddy obtiene y renueva certificados Let's Encrypt automáticamente.
+#
+#   docker compose -f deploy/docker-compose.caddy.yml up -d
+name: edge
+
+services:
+  proxy:
+    image: caddy:2.9-alpine
+    container_name: edge_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - web
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  web:
+    external: true

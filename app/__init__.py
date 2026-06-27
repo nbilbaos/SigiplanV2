@@ -2,6 +2,7 @@ import os
 from flask import Flask
 from flask_login import LoginManager
 from flask_bcrypt import Bcrypt
+from flask_wtf import CSRFProtect
 from mongoengine import connect
 
 # Inicializar extensiones
@@ -11,6 +12,7 @@ login_manager.login_message = 'Por favor, inicia sesión para acceder a esta pá
 login_manager.login_message_category = 'warning'
 
 bcrypt = Bcrypt()
+csrf = CSRFProtect()
 
 def create_app(config_name='dev'):
     app = Flask(__name__)
@@ -29,6 +31,7 @@ def create_app(config_name='dev'):
     # Inicializar extensiones con la app
     login_manager.init_app(app)
     bcrypt.init_app(app)
+    csrf.init_app(app)
 
     # Detrás del reverse proxy (Caddy) en producción: confiar en los headers
     # X-Forwarded-* para que Flask conozca el esquema/host reales (HTTPS).

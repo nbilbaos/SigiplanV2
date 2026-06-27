@@ -15,6 +15,7 @@
     <div class="card" style="padding: 36px;">
 
       <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <!-- Nombre -->
         <div class="form-group">

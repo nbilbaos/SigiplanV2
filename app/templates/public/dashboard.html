@@ -1,180 +1,194 @@
 {% extends "base.html" %}
 
-{% block title %}SIGIPLAN - Dashboard General{% endblock %}
-
-{% block dashboard_title %}Bienvenido de nuevo, {{ current_user.first_name }}!{% endblock %}
-{% block dashboard_subtitle %}Resumen actual de tu cuenta institucional.{% endblock %}
+{% block title %}SIGIPLAN — Sala de control ejecutivo{% endblock %}
+{% block dashboard_title %}Sala de control ejecutivo{% endblock %}
+{% block dashboard_subtitle %}{{ metrics.scope_label }} · cartera, riesgos, presupuesto y trazabilidad en una sola vista.{% endblock %}
 
 {% block dashboard_content %}
 <div class="dashboard-content">
 
-  <!-- Metrics Grid -->
-  <div class="features-grid" style="margin-bottom: 40px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
-    
-    {% if current_user.role == 'SUPER_ADMIN' %}
-      <div class="card" style="padding: 24px;">
-        <h4 style="color: var(--color-text-muted); font-size: 0.85rem; text-transform: uppercase;">Total Entidades</h4>
-        <div style="font-size: 2.5rem; font-weight: 800; color: var(--color-primary); margin-top: 8px;">
-          {{ metrics.entities_count }}
-        </div>
-        <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 8px;">Entidades activas registradas</p>
-      </div>
-      <div class="card" style="padding: 24px;">
-        <h4 style="color: var(--color-text-muted); font-size: 0.85rem; text-transform: uppercase;">Total Usuarios</h4>
-        <div style="font-size: 2.5rem; font-weight: 800; color: var(--color-tertiary); margin-top: 8px;">
-          {{ metrics.users_count }}
-        </div>
-        <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 8px;">Usuarios de plataforma globales</p>
-      </div>
-      
-    {% elif current_user.role == 'ENTITY_ADMIN' %}
-      <div class="card" style="padding: 24px;">
-        <h4 style="color: var(--color-text-muted); font-size: 0.85rem; text-transform: uppercase;">Usuarios Locales</h4>
-        <div style="font-size: 2.5rem; font-weight: 800; color: var(--color-primary); margin-top: 8px;">
-          {{ metrics.users_count }}
-        </div>
-        <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 8px;">Colaboradores en la entidad</p>
-      </div>
-      <div class="card" style="padding: 24px;">
-        <h4 style="color: var(--color-text-muted); font-size: 0.85rem; text-transform: uppercase;">Iniciativas Activas</h4>
-        <div style="font-size: 2.5rem; font-weight: 800; color: var(--color-tertiary); margin-top: 8px;">
-          {{ metrics.initiatives_count }}
-        </div>
-        <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 8px;">Proyectos visibles en flujo</p>
-      </div>
-      <div class="card" style="padding: 24px;">
-        <h4 style="color: var(--color-text-muted); font-size: 0.85rem; text-transform: uppercase;">Papelera (Borradas)</h4>
-        <div style="font-size: 2.5rem; font-weight: 800; color: var(--color-danger); margin-top: 8px;">
-          {{ metrics.deleted_initiatives_count }}
-        </div>
-        <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 8px;">Recuperables por ti</p>
-      </div>
-      
-    {% else %}
-      <div class="card" style="padding: 20px; background-color: var(--color-bg-card);">
-        <h4 style="color: var(--color-text-muted); font-size: 0.8rem; text-transform: uppercase;">Borrador</h4>
-        <div style="font-size: 2rem; font-weight: 800; color: var(--color-text-dark); margin-top: 4px;">
-          {{ metrics.initiatives_draft }}
-        </div>
-      </div>
-      <div class="card" style="padding: 20px; background-color: var(--color-bg-card);">
-        <h4 style="color: var(--color-text-muted); font-size: 0.8rem; text-transform: uppercase;">En Formulación</h4>
-        <div style="font-size: 2rem; font-weight: 800; color: var(--color-primary); margin-top: 4px;">
-          {{ metrics.initiatives_progress }}
-        </div>
-      </div>
-      <div class="card" style="padding: 20px; background-color: var(--color-bg-card);">
-        <h4 style="color: var(--color-text-muted); font-size: 0.8 /rem; text-transform: uppercase;">En Revisión</h4>
-        <div style="font-size: 2rem; font-weight: 800; color: var(--color-tertiary); margin-top: 4px;">
-          {{ metrics.initiatives_review }}
-        </div>
-      </div>
-      <div class="card" style="padding: 20px; background-color: var(--color-bg-card);">
-        <h4 style="color: var(--color-text-muted); font-size: 0.8rem; text-transform: uppercase;">Aprobadas</h4>
-        <div style="font-size: 2rem; font-weight: 800; color: #3b6347; margin-top: 4px;">
-          {{ metrics.initiatives_approved }}
-        </div>
-      </div>
-    {% endif %}
-  </div>
-
-  <!-- Role Specific Panel Links & Tables -->
-  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 32px; align-items: start;">
-    
-    <!-- Left Column (Tables or main charts) -->
+  <div class="section-header">
     <div>
-      {% if current_user.role in ['PLANNING_DIRECTOR', 'FORMULATION_LEADER', 'TECHNICAL_FORMULATOR'] %}
-        <div class="card" style="padding: 24px;">
-          <h3 style="color: var(--color-primary); margin-bottom: 20px;"><i class="fa-solid fa-list-check" style="margin-right: 8px;"></i> Iniciativas Recientes</h3>
-          
-          {% if metrics.recent_initiatives %}
-            <div style="overflow-x: auto;">
-              <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
-                <thead>
-                  <tr style="border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); font-weight: 700;">
-                    <th style="padding: 12px 8px;">Código</th>
-                    <th style="padding: 12px 8px;">Título</th>
-                    <th style="padding: 12px 8px;">Estado</th>
-                    <th style="padding: 12px 8px;">Última Edición</th>
-                    <th style="padding: 12px 8px;">Acción</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for init in metrics.recent_initiatives %}
-                    <tr style="border-bottom: 1px solid var(--color-border);">
-                      <td style="padding: 12px 8px; font-weight: 700;">{{ init.code }}</td>
-                      <td style="padding: 12px 8px;">{{ init.title }}</td>
-                      <td style="padding: 12px 8px;">
-                        <span class="badge {% if init.status == 'DRAFT' %}badge-draft{% elif init.status == 'IN_PROGRESS' %}badge-progress{% elif init.status == 'UNDER_REVIEW' %}badge-review{% elif init.status == 'APPROVED' %}badge-approved{% else %}badge-rejected{% endif %}">
-                          {{ init.get_status_display() }}
-                        </span>
-                      </td>
-                      <td style="padding: 12px 8px; color: var(--color-text-muted);">{{ init.updated_at.strftime('%d/%m/%Y %H:%M') }}</td>
-                      <td style="padding: 12px 8px;">
-                        <a href="{{ url_for('planning.initiative_detail', initiative_id=init.id | string) }}" class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 0.75rem;">Ver Ficha</a>
-                      </td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          {% else %}
-            <p style="color: var(--color-text-muted); font-style: italic;">No hay iniciativas asignadas o creadas recientemente.</p>
-          {% endif %}
-        </div>
-      {% else %}
-        <div class="card" style="padding: 24px;">
-          <h3 style="color: var(--color-primary); margin-bottom: 16px;">Acceso y Control Directo</h3>
-          <p style="color: var(--color-text-muted); margin-bottom: 20px;">Utiliza el menú lateral para gestionar colaboradores, fuentes de financiamiento, el perfil de tu entidad y la bitácora de actividad.</p>
-          <div style="display: flex; gap: 16px;">
-            {% if current_user.role == 'ENTITY_ADMIN' %}
-              <a href="{{ url_for('admin.dashboard') }}" class="btn btn-primary"><i class="fa-solid fa-gauge-high"></i> Panel de Entidad</a>
-              <a href="{{ url_for('admin.users') }}" class="btn btn-secondary"><i class="fa-solid fa-users"></i> Gestionar Usuarios</a>
-            {% else %}
-              <a href="{{ url_for('superadmin.index') }}" class="btn btn-primary"><i class="fa-solid fa-building-flag"></i> Ver Entidades</a>
-            {% endif %}
-          </div>
-        </div>
+      <div class="section-eyebrow">Control de cartera pública</div>
+      <h2 class="section-title">Visión ejecutiva de inversión</h2>
+      <p class="section-subtitle">
+        Diseñada para explicar en segundos qué está avanzando, dónde hay riesgo y qué decisión corresponde tomar.
+      </p>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;" class="no-print">
+      {% if current_user.role in ['ENTITY_ADMIN', 'PLANNING_DIRECTOR'] %}
+        <a class="btn btn-secondary btn-sm" href="{{ url_for('planning.portfolio_export_csv') }}">
+          <i class="fa-solid fa-file-csv" style="margin-right:6px;"></i> Exportar CSV
+        </a>
+        <a class="btn btn-primary btn-sm" href="{{ url_for('planning.executive_report') }}">
+          <i class="fa-solid fa-file-lines" style="margin-right:6px;"></i> Reporte ejecutivo
+        </a>
+      {% elif current_user.role == 'FORMULATION_LEADER' or current_user.role == 'TECHNICAL_FORMULATOR' %}
+        <a class="btn btn-primary btn-sm" href="{{ url_for('formulation.index') }}">
+          <i class="fa-solid fa-pen-ruler" style="margin-right:6px;"></i> Mesa de formulación
+        </a>
+      {% elif current_user.role == 'SUPER_ADMIN' %}
+        <a class="btn btn-primary btn-sm" href="{{ url_for('superadmin.entities') }}">
+          <i class="fa-solid fa-building-flag" style="margin-right:6px;"></i> Ver entidades
+        </a>
       {% endif %}
     </div>
+  </div>
 
-    <!-- Right Column (Sidebar or Quick Actions) -->
-    <div>
-      <div class="card" style="padding: 24px; background-color: var(--color-bg-input);">
-        <h3 style="font-size: 1.15rem; color: var(--color-text-dark); margin-bottom: 16px;">Acciones Rápidas</h3>
-        
-        <div style="display: flex; flex-direction: column; gap: 12px;">
-          {% if current_user.role == 'PLANNING_DIRECTOR' %}
-            <a href="{{ url_for('planning.create_initiative') }}" class="btn btn-primary btn-sm" style="width: 100%; justify-content: flex-start;">
-              <i class="fa-solid fa-plus" style="margin-right: 8px;"></i> Crear Iniciativa
-            </a>
-            <a href="{{ url_for('planning.funding') }}" class="btn btn-secondary btn-sm" style="width: 100%; justify-content: flex-start;">
-              <i class="fa-solid fa-sack-dollar" style="margin-right: 8px;"></i> Agregar Financiamiento
-            </a>
-            <a href="{{ url_for('planning.org_chart') }}" class="btn btn-secondary btn-sm" style="width: 100%; justify-content: flex-start;">
-              <i class="fa-solid fa-sitemap" style="margin-right: 8px;"></i> Ver Organigrama
-            </a>
-          {% elif current_user.role == 'FORMULATION_LEADER' %}
-            <a href="{{ url_for('formulation.index') }}" class="btn btn-primary btn-sm" style="width: 100%; justify-content: flex-start;">
-              <i class="fa-solid fa-pen-ruler" style="margin-right: 8px;"></i> Mesa de Formulación
-            </a>
-          {% elif current_user.role == 'TECHNICAL_FORMULATOR' %}
-            <a href="{{ url_for('formulation.index') }}" class="btn btn-primary btn-sm" style="width: 100%; justify-content: flex-start;">
-              <i class="fa-solid fa-pen-ruler" style="margin-right: 8px;"></i> Mis Proyectos Asignados
-            </a>
-          {% elif current_user.role == 'ENTITY_ADMIN' %}
-            <a href="{{ url_for('admin.users') }}" class="btn btn-primary btn-sm" style="width: 100%; justify-content: flex-start;">
-              <i class="fa-solid fa-user-plus" style="margin-right: 8px;"></i> Agregar Colaborador
-            </a>
-          {% elif current_user.role == 'SUPER_ADMIN' %}
-            <a href="{{ url_for('superadmin.index') }}" class="btn btn-primary btn-sm" style="width: 100%; justify-content: flex-start;">
-              <i class="fa-solid fa-plus" style="margin-right: 8px;"></i> Crear Nueva Entidad
-            </a>
-          {% endif %}
+  <div class="metric-grid">
+    <div class="metric-card">
+      <div class="metric-label">Iniciativas activas</div>
+      <div class="metric-value">{{ metrics.initiatives_total }}</div>
+      <div class="metric-note">Cartera visible según tu rol.</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Monto estimado</div>
+      <div class="metric-value">${{ "{:,.0f}".format(metrics.estimated_total) }}</div>
+      <div class="metric-note">Suma de costos de iniciativas.</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Presupuesto disponible</div>
+      <div class="metric-value">${{ "{:,.0f}".format(metrics.funding_available) }}</div>
+      <div class="metric-note">Fuentes activas menos asignación registrada.</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">{% if current_user.role == 'SUPER_ADMIN' %}Entidades activas{% else %}Usuarios entidad{% endif %}</div>
+      <div class="metric-value">{% if current_user.role == 'SUPER_ADMIN' %}{{ metrics.entities_active }}{% else %}{{ metrics.users_count }}{% endif %}</div>
+      <div class="metric-note">Capacidad operativa configurada.</div>
+    </div>
+  </div>
+
+  <div class="executive-grid">
+    <div class="panel-stack">
+      <div class="action-panel">
+        <div class="section-header" style="margin-bottom:0;">
+          <div>
+            <div class="panel-label">Distribución por estado</div>
+            <h3 style="margin:4px 0 0;">Pipeline de iniciativas</h3>
+          </div>
         </div>
+        <div class="status-strip">
+          {% for status in metrics.status_order %}
+            <div class="status-cell">
+              <strong>{{ metrics.status_counts[status] }}</strong>
+              <span>{{ metrics.status_labels[status] }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="action-panel">
+        <div class="section-header">
+          <div>
+            <div class="panel-label">Riesgo de cartera</div>
+            <h3 style="margin:4px 0 0;">Alertas para decisión</h3>
+          </div>
+        </div>
+        <div class="risk-grid">
+          {% for risk in metrics.risks %}
+            <a class="risk-banner {{ risk.tone }}" href="{% if current_user.role in ['PLANNING_DIRECTOR', 'FORMULATION_LEADER', 'TECHNICAL_FORMULATOR'] %}{{ url_for('planning.initiatives', due=risk.href if risk.key != 'rejected' else '', status='REJECTED' if risk.key == 'rejected' else '') }}{% else %}#{% endif %}">
+              <i class="fa-solid {{ risk.icon }}"></i>
+              <span>
+                <span class="risk-value">{{ risk.value }}</span>
+                <span class="risk-label">{{ risk.label }}</span>
+              </span>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="action-panel">
+        <div class="section-header">
+          <div>
+            <div class="panel-label">Cartera prioritaria</div>
+            <h3 style="margin:4px 0 0;">Iniciativas que merecen atención</h3>
+          </div>
+        </div>
+        {% if metrics.critical %}
+          <div class="table-shell">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Iniciativa</th>
+                  <th>Riesgo</th>
+                  <th>Plazo</th>
+                  <th>Acción sugerida</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in metrics.critical %}
+                  {% set init = item.initiative %}
+                  <tr>
+                    <td><strong>{{ init.code }}</strong></td>
+                    <td>{{ init.title }}</td>
+                    <td>{{ item.flags|join(', ') }}</td>
+                    <td>{% if init.deadline %}{{ init.deadline.strftime('%d/%m/%Y') }}{% else %}Sin plazo{% endif %}</td>
+                    <td>{{ metrics.next_action_for(init, current_user.role) }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <i class="fa-solid fa-shield-heart"></i>
+            No hay alertas críticas en la cartera visible.
+          </div>
+        {% endif %}
       </div>
     </div>
 
+    <div class="panel-stack">
+      <div class="action-panel is-dark">
+        <div class="panel-label">Narrativa para decisor</div>
+        <h3 style="margin-top:8px;">SIGIPLAN convierte formulación en evidencia</h3>
+        <p style="margin:12px 0 18px;">
+          Cada iniciativa mantiene responsables, plazos, fuentes, adjuntos y bitácora para respaldar decisiones públicas.
+        </p>
+        {% if current_user.role == 'PLANNING_DIRECTOR' %}
+          <a class="btn btn-primary btn-sm" href="{{ url_for('planning.create_initiative') }}">Crear iniciativa</a>
+        {% elif current_user.role in ['FORMULATION_LEADER', 'TECHNICAL_FORMULATOR'] %}
+          <a class="btn btn-primary btn-sm" href="{{ url_for('formulation.index') }}">Ir a formulación</a>
+        {% endif %}
+      </div>
+
+      <div class="action-panel">
+        <div class="panel-label">Actividad reciente</div>
+        <h3 style="margin-top:6px;">Bitácora auditada</h3>
+        {% if metrics.recent_audit %}
+          <div class="timeline" style="margin-top:16px;">
+            {% for entry in metrics.recent_audit %}
+              <div class="timeline-item">
+                <div style="font-weight:800;">{{ entry.initiative.code }} · {{ entry.action }}</div>
+                <div style="font-size:0.84rem;color:var(--color-text-muted);">
+                  {% if entry.user %}{{ entry.user.full_name }} · {% endif %}
+                  {{ entry.timestamp.strftime('%d/%m/%Y %H:%M') if entry.timestamp else '' }}
+                </div>
+                {% if entry.details %}<div style="font-size:0.86rem;margin-top:4px;">{{ entry.details }}</div>{% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state" style="padding:32px 18px;">Sin actividad registrada todavía.</div>
+        {% endif %}
+      </div>
+
+      <div class="action-panel">
+        <div class="panel-label">Top presupuesto</div>
+        <h3 style="margin-top:6px;">Mayores iniciativas</h3>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px;">
+          {% for init in metrics.top_initiatives %}
+            <div style="display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--color-border);padding-bottom:10px;">
+              <span style="font-weight:750;">{{ init.code }}</span>
+              <span>${{ "{:,.0f}".format(init.estimated_cost or 0) }}</span>
+            </div>
+          {% else %}
+            <span style="color:var(--color-text-muted);">Sin iniciativas valorizadas.</span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}

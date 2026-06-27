@@ -4,6 +4,9 @@
 .env
 .env.*
 !.env.prod.example
+Claves*.txt
+*credenciales*.txt
+*credentials*.txt
 
 # Python
 __pycache__/
@@ -16,11 +19,15 @@ venv/
 # Datos locales que NO deben entrar a la imagen
 app/static/uploads/*
 !app/static/uploads/.gitkeep
+uploads/*
+!uploads/.gitkeep
 
 # Herramientas y docs de desarrollo
 .claude/
 .agents/
 *.md
+*.txt
+!requirements.txt
 seed.py
 
 # Sistema

@@ -59,6 +59,7 @@
         <i class="fa-solid fa-location-dot" style="color:var(--color-primary);"></i> Dirección
       </h3>
       <form method="POST" action="{{ url_for('admin.entity_address') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
           <label class="form-label" for="address">Dirección de la Entidad</label>
           <input type="text" id="address" name="address" class="form-control"

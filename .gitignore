@@ -4,6 +4,9 @@
 .env.prod
 *.pem
 *.key
+Claves*.txt
+*credenciales*.txt
+*credentials*.txt
 
 # Python
 __pycache__/
@@ -17,6 +20,8 @@ venv/
 # Archivos subidos por usuarios (persisten en volumen, no en el repo)
 app/static/uploads/*
 !app/static/uploads/.gitkeep
+uploads/*
+!uploads/.gitkeep
 
 # Sistema / editor / tooling local
 .DS_Store

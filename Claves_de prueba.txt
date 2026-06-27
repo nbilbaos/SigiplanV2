@@ -1,6 +1,0 @@
-Credenciales de Prueba Rápidas (Contraseña: password123):
-Super Administrador: superadmin@sigiplan.cl
-Administrador de la Entidad: admin@santiago.cl
-Director de Planificación: director@santiago.cl
-Coordinador de Formulación: coordinador@santiago.cl
-Formulador Técnico: formulador@santiago.cl

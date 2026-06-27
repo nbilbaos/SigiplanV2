@@ -12,17 +12,79 @@
   <!-- Favicon (Earthy style) -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌱</text></svg>">
   
-  <!-- FontAwesome for Premium Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  <!-- Terra Organic Design CSS -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <!-- Critical paint shell: prevents visible unstyled HTML while the full CSS arrives. -->
+  <style>
+    :root {
+      --color-primary:#0E6E5B; --color-primary-hover:#0A5446; --color-bg-base:#EEF1EE;
+      --color-bg-card:#fff; --color-text-dark:#14201C; --color-text-muted:#5A6963;
+      --color-border:rgba(20,32,28,.10); --sidebar-bg:#112019; --sidebar-bg-soft:#16271F;
+      --sidebar-fg:#E9EFEB; --sidebar-fg-muted:#8AA095; --sidebar-accent:#34D9AC;
+      --sidebar-border:rgba(255,255,255,.07); --font-headlines:Georgia,'Times New Roman',serif;
+      --font-body:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{background:var(--color-bg-base)}
+    body{background:var(--color-bg-base);color:var(--color-text-dark);font-family:var(--font-body);font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+    h1,h2,h3,h4,h5,h6,.logo-text{font-family:var(--font-headlines);font-weight:600;line-height:1.18;color:var(--color-text-dark)}
+    a{color:var(--color-primary);text-decoration:none}
+    .container{max-width:1200px;margin:0 auto;padding:0 24px}
+    .landing-header{background:rgba(238,241,238,.92);border-bottom:1px solid var(--color-border);position:sticky;top:0;z-index:100;padding:16px 0}
+    .landing-header .nav-container{display:flex;justify-content:space-between;align-items:center}
+    .logo-container{display:flex;align-items:center;gap:12px}.logo-text{font-size:1.5rem;color:var(--color-primary);letter-spacing:-.03em}
+    .dashboard-layout{min-height:100vh;display:grid;grid-template-columns:280px 1fr;background:var(--color-bg-base)}
+    .sidebar{background:linear-gradient(145deg,var(--sidebar-bg-soft),var(--sidebar-bg));color:var(--sidebar-fg);border-right:1px solid var(--sidebar-border);padding:24px 18px;display:flex;flex-direction:column;justify-content:space-between}
+    .sidebar-menu{list-style:none;display:flex;flex-direction:column;gap:6px}.sidebar-item a{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:10px;color:var(--sidebar-fg-muted)}
+    .dashboard-main{min-width:0;padding:28px 34px 44px}.dashboard-header{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:24px}
+    .mobile-rail{display:none;background:var(--sidebar-bg);color:var(--sidebar-fg);padding:14px 18px}.auth-page{min-height:calc(100vh - 170px);display:grid;place-items:center;padding:48px 20px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;padding:11px 22px;border-radius:10px;border:1px solid transparent;font-weight:600;line-height:1.2}.btn-primary{background:var(--color-primary);color:#fff}.btn-secondary{background:var(--color-bg-card);color:var(--color-text-dark);border-color:var(--color-border)}
+    @media (max-width:992px){.dashboard-layout{display:block}.sidebar{display:none}.mobile-rail{display:block}.dashboard-main{padding:24px 18px 36px}}
+  </style>
+
+  <!-- Full local CSS must load before non-critical external fonts/icons. -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20260626-fouc2">
+
+  <!-- Non-critical external assets: async after the institutional shell is styled. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,400..600&family=Hanken+Grotesk:wght@300..800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,400..600&family=Hanken+Grotesk:wght@300..800&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  </noscript>
   
   {% block extra_head %}{% endblock %}
 </head>
 <body>
 
   {% if current_user.is_authenticated %}
+    <details class="mobile-rail">
+      <summary>
+        <span class="logo-text">🌱 SIGIPLAN</span>
+        <span><i class="fa-solid fa-bars"></i> Menú</span>
+      </summary>
+      <ul class="sidebar-menu">
+        <li class="sidebar-item"><a href="{{ url_for('public.dashboard') }}"><i class="fa-solid fa-chart-line"></i> Inicio ejecutivo</a></li>
+        {% if current_user.role == 'SUPER_ADMIN' %}
+          <li class="sidebar-item"><a href="{{ url_for('superadmin.index') }}"><i class="fa-solid fa-gauge-high"></i> Plataforma</a></li>
+          <li class="sidebar-item"><a href="{{ url_for('superadmin.entities') }}"><i class="fa-solid fa-building-flag"></i> Entidades</a></li>
+          <li class="sidebar-item"><a href="{{ url_for('superadmin.users') }}"><i class="fa-solid fa-users"></i> Usuarios</a></li>
+        {% elif current_user.role == 'ENTITY_ADMIN' %}
+          <li class="sidebar-item"><a href="{{ url_for('admin.dashboard') }}"><i class="fa-solid fa-gauge-high"></i> Entidad</a></li>
+          <li class="sidebar-item"><a href="{{ url_for('admin.users') }}"><i class="fa-solid fa-users-gear"></i> Colaboradores</a></li>
+          <li class="sidebar-item"><a href="{{ url_for('planning.executive_report') }}"><i class="fa-solid fa-file-lines"></i> Reporte ejecutivo</a></li>
+        {% elif current_user.role == 'PLANNING_DIRECTOR' %}
+          <li class="sidebar-item"><a href="{{ url_for('planning.initiatives') }}"><i class="fa-solid fa-folder-open"></i> Cartera</a></li>
+          <li class="sidebar-item"><a href="{{ url_for('planning.executive_report') }}"><i class="fa-solid fa-file-lines"></i> Reporte ejecutivo</a></li>
+          <li class="sidebar-item"><a href="{{ url_for('planning.funding') }}"><i class="fa-solid fa-money-bill-wave"></i> Financiamiento</a></li>
+        {% else %}
+          <li class="sidebar-item"><a href="{{ url_for('formulation.index') }}"><i class="fa-solid fa-pen-ruler"></i> Formulación</a></li>
+        {% endif %}
+        <li class="sidebar-item"><a href="{{ url_for('public.profile') }}"><i class="fa-solid fa-user"></i> Mi perfil</a></li>
+        <li class="sidebar-item"><a href="{{ url_for('auth.logout') }}"><i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión</a></li>
+      </ul>
+    </details>
     <!-- Layout para Usuarios Logueados (Dashboard Layout) -->
     <div class="dashboard-layout">
       <!-- Sidebar -->

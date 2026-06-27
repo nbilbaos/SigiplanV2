@@ -38,7 +38,7 @@ def _visible_query():
     from app.models.initiative import Initiative
     base = Initiative.objects(entity=current_user.entity, is_deleted=False)
     if current_user.role == 'TECHNICAL_FORMULATOR':
-        base = base.filter(assigned_formulators=current_user.id)
+        base = base.filter(assigned_formulators=current_user._get_current_object())
     return base
 
 

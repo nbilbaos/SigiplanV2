@@ -14,9 +14,9 @@ RUN pip install -r requirements.txt
 # Código de la aplicación
 COPY . .
 
-# Usuario sin privilegios + carpeta de subidas
+# Usuario sin privilegios + carpeta de subidas fuera de app/static
 RUN useradd --create-home --uid 10001 appuser \
-    && mkdir -p /app/app/static/uploads \
+    && mkdir -p /app/uploads \
     && chown -R appuser:appuser /app
 USER appuser
 

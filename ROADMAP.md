@@ -83,7 +83,7 @@ Estado del desarrollo por módulo. Actualizar este archivo cada vez que se compl
 | ✅ | **Ver Perfil de Entidad** — nombre, RUT, plan activo (solo lectura — no puede editar nombre ni RUT) |
 | ✅ | **Editar Dirección de Entidad** — único campo editable por el Entity Admin |
 | ✅ | **Logs de Actividad de su Entidad** — vista filtrada por acción y fechas, solo sus iniciativas |
-| ⬜ | **Exportar Datos** — descarga en JSON/CSV de las iniciativas de su entidad |
+| ✅ | **Exportar Datos** — descarga CSV de las iniciativas de su entidad |
 
 ---
 
@@ -107,7 +107,7 @@ Estado del desarrollo por módulo. Actualizar este archivo cada vez que se compl
 | ✅ | **Asignar Responsables** — director, coordinador y formuladores desde el formulario de iniciativa |
 | ✅ | **Ver y Asignar Fuentes de Financiamiento** — selección de fuentes existentes y vista de uso/disponibilidad |
 | ✅ | **Organigrama** — visualización jerárquica de usuarios de la entidad |
-| ⬜ | **Exportar Cartera** — reporte de todas las iniciativas en PDF o Excel |
+| ✅ | **Exportar Cartera** — exportación CSV y reporte ejecutivo imprimible |
 
 ---
 
@@ -153,6 +153,7 @@ Estado del desarrollo por módulo. Actualizar este archivo cada vez que se compl
 | ✅ | `GET /api/initiatives` — listado de iniciativas en JSON (scoped por rol, filtro por estado) |
 | ✅ | `GET /api/funding-sources` — fuentes de la entidad con uso y disponibilidad |
 | ✅ | `GET /api/dashboard-metrics` — métricas del dashboard según rol (incluye SUPER_ADMIN global) |
+| ✅ | `GET /api/executive-metrics` — métricas ejecutivas de cartera, riesgo y presupuesto |
 
 ---
 

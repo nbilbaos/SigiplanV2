@@ -1,7 +1,18 @@
+from urllib.parse import urlsplit
+
 from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from app.blueprints.auth import auth_bp
 from app.models.user import User
+
+
+def _is_safe_next(target):
+    """Permite redirecciones post-login solo dentro del mismo sitio."""
+    if not target:
+        return False
+    ref = urlsplit(request.host_url)
+    test = urlsplit(target)
+    return not test.netloc or test.netloc == ref.netloc
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -27,7 +38,9 @@ def login():
             
             # Redirigir a la página previa o al dashboard principal
             next_page = request.args.get('next')
-            return redirect(next_page or url_for('public.dashboard'))
+            if _is_safe_next(next_page):
+                return redirect(next_page)
+            return redirect(url_for('public.dashboard'))
         else:
             flash('Credenciales incorrectas o usuario inactivo. Inténtalo de nuevo.', 'danger')
             
