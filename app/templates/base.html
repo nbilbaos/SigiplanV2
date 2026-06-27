@@ -68,6 +68,7 @@
         <li class="sidebar-item"><a href="{{ url_for('public.dashboard') }}"><i class="fa-solid fa-chart-line"></i> Inicio ejecutivo</a></li>
         {% if current_user.role == 'SUPER_ADMIN' %}
           <li class="sidebar-item"><a href="{{ url_for('superadmin.index') }}"><i class="fa-solid fa-gauge-high"></i> Plataforma</a></li>
+          <li class="sidebar-item"><a href="{{ url_for('superadmin.statistics') }}"><i class="fa-solid fa-chart-pie"></i> Estadísticas</a></li>
           <li class="sidebar-item"><a href="{{ url_for('superadmin.entities') }}"><i class="fa-solid fa-building-flag"></i> Entidades</a></li>
           <li class="sidebar-item"><a href="{{ url_for('superadmin.users') }}"><i class="fa-solid fa-users"></i> Usuarios</a></li>
         {% elif current_user.role == 'ENTITY_ADMIN' %}
@@ -115,7 +116,12 @@
                     <i class="fa-solid fa-gauge-high"></i> Panel de Control
                   </a>
                 </li>
-                <li class="sidebar-item {% if request.endpoint in ['superadmin.entities', 'superadmin.entity_create', 'superadmin.entity_edit'] %}active{% endif %}">
+                <li class="sidebar-item {% if request.endpoint == 'superadmin.statistics' %}active{% endif %}">
+                  <a href="{{ url_for('superadmin.statistics') }}">
+                    <i class="fa-solid fa-chart-pie"></i> Estadísticas
+                  </a>
+                </li>
+                <li class="sidebar-item {% if request.endpoint in ['superadmin.entities', 'superadmin.entity_detail', 'superadmin.entity_create', 'superadmin.entity_edit'] %}active{% endif %}">
                   <a href="{{ url_for('superadmin.entities') }}">
                     <i class="fa-solid fa-building-flag"></i> Entidades
                   </a>

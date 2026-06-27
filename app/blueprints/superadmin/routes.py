@@ -2,6 +2,7 @@ from flask import render_template, redirect, url_for, flash, request, abort
 from flask_login import login_required
 from app.blueprints.superadmin import superadmin_bp
 from app.utils.decorators import role_required
+from app.utils.executive import STATUS_LABELS, STATUS_ORDER
 
 ROLES = [
     'SUPER_ADMIN',
@@ -20,6 +21,36 @@ AUDIT_ACTIONS = [
     'SOFT_DELETE',
     'RESTORE',
 ]
+
+
+def _get_entity(entity_id):
+    from app.models.entity import Entity
+
+    try:
+        entity = Entity.objects(id=entity_id).first()
+    except Exception:
+        entity = None
+    if not entity:
+        abort(404)
+    return entity
+
+
+def _audit_entries_for(initiatives, limit=10):
+    from datetime import datetime
+
+    entries = []
+    for initiative in initiatives:
+        for entry in initiative.audit_trail:
+            entries.append({
+                'timestamp': entry.timestamp,
+                'user': entry.user,
+                'action': entry.action,
+                'details': entry.details or '',
+                'initiative': initiative,
+                'entity': initiative.entity,
+            })
+    entries.sort(key=lambda item: item['timestamp'] or datetime.min, reverse=True)
+    return entries[:limit]
 
 
 # ─── Dashboard ───────────────────────────────────────────────────────────────
@@ -83,6 +114,136 @@ def entities():
         })
 
     return render_template('superadmin/entities.html', entities_stats=entities_stats)
+
+
+@superadmin_bp.route('/entities/<entity_id>')
+@login_required
+@role_required('SUPER_ADMIN')
+def entity_detail(entity_id):
+    from app.models.user import User
+    from app.models.initiative import Initiative
+    from app.models.funding import FundingSource
+
+    entity = _get_entity(entity_id)
+    users = list(User.objects(entity=entity).order_by('role', 'last_name', 'first_name'))
+    initiatives = list(Initiative.objects(entity=entity, is_deleted=False).order_by('-updated_at'))
+    sources = list(FundingSource.objects(entity=entity).order_by('name'))
+
+    status_counts = {
+        status: sum(1 for item in initiatives if item.status == status)
+        for status in STATUS_ORDER
+    }
+    role_counts = {role: sum(1 for user in users if user.role == role) for role in ROLES}
+    budget_total = sum(source.total_budget or 0 for source in sources)
+    budget_allocated = sum(source.allocated_budget or 0 for source in sources)
+    estimated_total = sum(item.estimated_cost or 0 for item in initiatives)
+    active_work = [item for item in initiatives if item.status not in ('APPROVED', 'ARCHIVED')]
+
+    metrics = {
+        'users_total': len(users),
+        'users_active': sum(1 for user in users if user.is_active),
+        'initiatives_total': len(initiatives),
+        'initiatives_active': len(active_work),
+        'initiatives_approved': status_counts.get('APPROVED', 0),
+        'estimated_total': estimated_total,
+        'budget_total': budget_total,
+        'budget_allocated': budget_allocated,
+        'budget_available': max(0, budget_total - budget_allocated),
+        'sources_total': len(sources),
+    }
+
+    critical = [
+        item for item in initiatives
+        if item.status == 'REJECTED'
+        or (not [f for f in item.assigned_formulators if f] and item.status not in ('APPROVED', 'ARCHIVED'))
+        or (not [s for s in item.funding_sources if s] and item.status not in ('APPROVED', 'ARCHIVED'))
+    ][:8]
+
+    return render_template(
+        'superadmin/entity_detail.html',
+        entity=entity,
+        metrics=metrics,
+        status_counts=status_counts,
+        status_labels=STATUS_LABELS,
+        status_order=STATUS_ORDER,
+        role_counts=role_counts,
+        users=users,
+        initiatives=initiatives[:10],
+        top_initiatives=sorted(initiatives, key=lambda item: item.estimated_cost or 0, reverse=True)[:6],
+        critical=critical,
+        sources=sources,
+        recent_audit=_audit_entries_for(initiatives, limit=10),
+    )
+
+
+@superadmin_bp.route('/statistics')
+@login_required
+@role_required('SUPER_ADMIN')
+def statistics():
+    from app.models.entity import Entity
+    from app.models.user import User
+    from app.models.initiative import Initiative
+    from app.models.funding import FundingSource
+
+    entities = list(Entity.objects.order_by('name'))
+    initiatives = list(Initiative.objects(is_deleted=False))
+    sources = list(FundingSource.objects)
+
+    status_counts = {
+        status: sum(1 for item in initiatives if item.status == status)
+        for status in STATUS_ORDER
+    }
+    plan_counts = {
+        plan: sum(1 for entity in entities if entity.subscription_plan == plan)
+        for plan in ('Standard', 'Premium', 'Enterprise')
+    }
+    budget_total = sum(source.total_budget or 0 for source in sources)
+    budget_allocated = sum(source.allocated_budget or 0 for source in sources)
+    estimated_total = sum(item.estimated_cost or 0 for item in initiatives)
+
+    entity_rows = []
+    for entity in entities:
+        entity_inits = [item for item in initiatives if item.entity and item.entity.id == entity.id]
+        entity_sources = [source for source in sources if source.entity and source.entity.id == entity.id]
+        row_estimated = sum(item.estimated_cost or 0 for item in entity_inits)
+        row_budget = sum(source.total_budget or 0 for source in entity_sources)
+        entity_rows.append({
+            'entity': entity,
+            'users': User.objects(entity=entity).count(),
+            'initiatives': len(entity_inits),
+            'approved': sum(1 for item in entity_inits if item.status == 'APPROVED'),
+            'rejected': sum(1 for item in entity_inits if item.status == 'REJECTED'),
+            'estimated_total': row_estimated,
+            'budget_total': row_budget,
+            'execution_pressure': (row_estimated / row_budget * 100) if row_budget else 0,
+        })
+    entity_rows.sort(key=lambda item: item['estimated_total'], reverse=True)
+
+    platform = {
+        'entities_total': len(entities),
+        'entities_active': sum(1 for entity in entities if entity.is_active),
+        'users_total': User.objects.count(),
+        'users_active': User.objects(is_active=True).count(),
+        'initiatives_total': len(initiatives),
+        'estimated_total': estimated_total,
+        'budget_total': budget_total,
+        'budget_allocated': budget_allocated,
+        'budget_available': max(0, budget_total - budget_allocated),
+        'approval_rate': (status_counts.get('APPROVED', 0) / len(initiatives) * 100) if initiatives else 0,
+        'review_load': status_counts.get('UNDER_REVIEW', 0),
+        'rejected_load': status_counts.get('REJECTED', 0),
+    }
+
+    return render_template(
+        'superadmin/statistics.html',
+        platform=platform,
+        status_counts=status_counts,
+        status_labels=STATUS_LABELS,
+        status_order=STATUS_ORDER,
+        plan_counts=plan_counts,
+        entity_rows=entity_rows,
+        recent_audit=_audit_entries_for(initiatives, limit=12),
+    )
 
 
 @superadmin_bp.route('/entities/create', methods=['GET', 'POST'])

@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}SIGIPLAN — Estadísticas de Plataforma{% endblock %}
+{% block dashboard_title %}Estadísticas de Plataforma{% endblock %}
+{% block dashboard_subtitle %}Resumen ejecutivo SaaS: adopción, presupuesto, estados de cartera y desempeño por entidad.{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content">
+
+  <div class="section-header">
+    <div>
+      <div class="section-eyebrow">Control SaaS global</div>
+      <h2 class="section-title">Pulso de la plataforma</h2>
+      <p class="section-subtitle">Vista consolidada para decisiones comerciales, soporte institucional y priorización operativa.</p>
+    </div>
+    <a href="{{ url_for('superadmin.entities') }}" class="btn btn-secondary btn-sm">
+      <i class="fa-solid fa-building-flag"></i> Gestionar entidades
+    </a>
+  </div>
+
+  <div class="metric-grid">
+    <div class="metric-card">
+      <div class="metric-label">Entidades activas</div>
+      <div class="metric-value">{{ platform.entities_active }}</div>
+      <div class="metric-note">de {{ platform.entities_total }} tenants registrados</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Usuarios activos</div>
+      <div class="metric-value">{{ platform.users_active }}</div>
+      <div class="metric-note">de {{ platform.users_total }} cuentas totales</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Cartera formulada</div>
+      <div class="metric-value">${{ "{:,.0f}".format(platform.estimated_total).replace(",", ".") }}</div>
+      <div class="metric-note">CLP estimados en iniciativas vigentes</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Tasa de aprobación</div>
+      <div class="metric-value">{{ "%.1f"|format(platform.approval_rate) }}%</div>
+      <div class="metric-note">{{ status_counts.get('APPROVED', 0) }} iniciativas aprobadas</div>
+    </div>
+  </div>
+
+  <div class="executive-grid">
+    <div class="panel-stack">
+      <div class="action-panel">
+        <div class="panel-label">Estados de cartera</div>
+        <div class="status-strip">
+          {% for status in status_order %}
+            <div class="status-cell">
+              <strong>{{ status_counts.get(status, 0) }}</strong>
+              <span>{{ status_labels.get(status, status) }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="table-shell">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Entidad</th>
+              <th>Plan</th>
+              <th>Usuarios</th>
+              <th>Iniciativas</th>
+              <th>Aprobadas</th>
+              <th>Cartera CLP</th>
+              <th>Presión</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in entity_rows %}
+              <tr>
+                <td>
+                  <a href="{{ url_for('superadmin.entity_detail', entity_id=row.entity.id|string) }}"><strong>{{ row.entity.name }}</strong></a>
+                  <div style="color:var(--color-text-muted);font-size:.78rem;">{{ row.entity.tax_id }}</div>
+                </td>
+                <td>{{ row.entity.subscription_plan }}</td>
+                <td>{{ row.users }}</td>
+                <td>{{ row.initiatives }}</td>
+                <td>{{ row.approved }}</td>
+                <td>${{ "{:,.0f}".format(row.estimated_total).replace(",", ".") }}</td>
+                <td>
+                  <span class="status-pill {% if row.execution_pressure > 100 %}status-REJECTED{% elif row.execution_pressure > 75 %}status-UNDER_REVIEW{% else %}status-APPROVED{% endif %}">
+                    {{ "%.0f"|format(row.execution_pressure) }}%
+                  </span>
+                </td>
+              </tr>
+            {% else %}
+              <tr><td colspan="7"><div class="empty-state">Sin entidades registradas.</div></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <aside class="panel-stack">
+      <div class="action-panel is-dark">
+        <div class="panel-label">Presupuesto global</div>
+        <h3 style="margin-top:8px;">${{ "{:,.0f}".format(platform.budget_available).replace(",", ".") }} disponibles</h3>
+        <p style="margin-top:10px;">
+          Presupuesto total: ${{ "{:,.0f}".format(platform.budget_total).replace(",", ".") }} ·
+          asignado: ${{ "{:,.0f}".format(platform.budget_allocated).replace(",", ".") }}.
+        </p>
+      </div>
+
+      <div class="action-panel">
+        <div class="panel-label">Distribución por plan</div>
+        <div class="risk-grid" style="margin-top:14px;">
+          {% for plan, count in plan_counts.items() %}
+            <div class="risk-banner info">
+              <i class="fa-solid fa-layer-group"></i>
+              <div>
+                <span class="risk-value">{{ count }}</span>
+                <span class="risk-label">{{ plan }}</span>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="action-panel">
+        <div class="panel-label">Señales operativas</div>
+        <div class="risk-grid" style="margin-top:14px;">
+          <div class="risk-banner warning">
+            <i class="fa-solid fa-magnifying-glass-chart"></i>
+            <div><span class="risk-value">{{ platform.review_load }}</span><span class="risk-label">en revisión</span></div>
+          </div>
+          <div class="risk-banner danger">
+            <i class="fa-solid fa-rotate-left"></i>
+            <div><span class="risk-value">{{ platform.rejected_load }}</span><span class="risk-label">devueltas</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-panel">
+        <div class="panel-label">Actividad reciente</div>
+        <div class="timeline" style="margin-top:14px;">
+          {% for entry in recent_audit %}
+            <div class="timeline-item">
+              <strong>{{ entry.action }}</strong>
+              <div style="color:var(--color-text-muted);font-size:.82rem;">
+                {{ entry.entity.name if entry.entity else 'Sin entidad' }} · {{ entry.initiative.code }}
+              </div>
+              <p style="margin-top:4px;">{{ entry.details }}</p>
+            </div>
+          {% else %}
+            <div class="empty-state">Sin actividad auditada.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+{% endblock %}

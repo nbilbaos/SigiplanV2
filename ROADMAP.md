@@ -55,8 +55,8 @@ Estado del desarrollo por módulo. Actualizar este archivo cada vez que se compl
 | ✅ | **Editar Usuario** — cambiar datos, rol, entidad y estado activo |
 | ✅ | **Activar / Desactivar Usuario** — desde el panel global |
 | ✅ | **Logs de Auditoría Global** — todas las acciones sobre iniciativas, filtrable por entidad, acción y fecha |
-| ⬜ | **Detalle de Entidad** — vista con usuarios, iniciativas, fuentes y actividad reciente de una entidad específica |
-| ⬜ | **Estadísticas de Plataforma** — resumen ejecutivo: presupuesto formulado total, iniciativas aprobadas por entidad |
+| ✅ | **Detalle de Entidad** — vista con usuarios, iniciativas, fuentes y actividad reciente de una entidad específica |
+| ✅ | **Estadísticas de Plataforma** — resumen ejecutivo: presupuesto formulado total, iniciativas aprobadas por entidad |
 | ⬜ | **Configuración de Plataforma** — parámetros globales del sistema |
 
 ---

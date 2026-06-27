@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}SIGIPLAN — {{ entity.name }}{% endblock %}
+{% block dashboard_title %}{{ entity.name }}{% endblock %}
+{% block dashboard_subtitle %}Ficha ejecutiva multi-entidad: usuarios, cartera, financiamiento y trazabilidad.{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-content">
+
+  <div class="section-header">
+    <div>
+      <div class="section-eyebrow">Tenant gubernamental · {{ entity.tax_id }}</div>
+      <h2 class="section-title">{{ entity.name }}</h2>
+      <p class="section-subtitle">
+        {{ entity.address or 'Sin dirección registrada' }} · Plan {{ entity.subscription_plan }} ·
+        {% if entity.is_active %}Entidad activa{% else %}Entidad desactivada{% endif %}
+      </p>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <a href="{{ url_for('superadmin.entity_edit', entity_id=entity.id|string) }}" class="btn btn-secondary btn-sm">
+        <i class="fa-solid fa-pen-to-square"></i> Editar entidad
+      </a>
+      <a href="{{ url_for('superadmin.users', entity_id=entity.id|string) }}" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-users"></i> Ver usuarios
+      </a>
+    </div>
+  </div>
+
+  <div class="metric-grid">
+    <div class="metric-card">
+      <div class="metric-label">Usuarios activos</div>
+      <div class="metric-value">{{ metrics.users_active }}</div>
+      <div class="metric-note">de {{ metrics.users_total }} usuarios registrados</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Iniciativas</div>
+      <div class="metric-value">{{ metrics.initiatives_total }}</div>
+      <div class="metric-note">{{ metrics.initiatives_active }} aún requieren gestión</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Cartera estimada</div>
+      <div class="metric-value">${{ "{:,.0f}".format(metrics.estimated_total).replace(",", ".") }}</div>
+      <div class="metric-note">CLP formulados en iniciativas vigentes</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Presupuesto disponible</div>
+      <div class="metric-value">${{ "{:,.0f}".format(metrics.budget_available).replace(",", ".") }}</div>
+      <div class="metric-note">sobre {{ metrics.sources_total }} fuentes registradas</div>
+    </div>
+  </div>
+
+  <div class="executive-grid">
+    <div class="panel-stack">
+      <div class="action-panel">
+        <div class="panel-label">Distribución de cartera</div>
+        <div class="status-strip">
+          {% for status in status_order %}
+            <div class="status-cell">
+              <strong>{{ status_counts.get(status, 0) }}</strong>
+              <span>{{ status_labels.get(status, status) }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="table-shell">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Iniciativa</th>
+              <th>Estado</th>
+              <th>Costo</th>
+              <th>Responsables</th>
+              <th>Plazo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for initiative in initiatives %}
+              <tr>
+                <td>
+                  <strong>{{ initiative.code }}</strong>
+                  <div style="color:var(--color-text-muted);font-size:.82rem;">{{ initiative.title }}</div>
+                </td>
+                <td><span class="status-pill status-{{ initiative.status }}">{{ status_labels.get(initiative.status, initiative.status) }}</span></td>
+                <td>${{ "{:,.0f}".format(initiative.estimated_cost or 0).replace(",", ".") }}</td>
+                <td>
+                  <div>{{ initiative.planning_director.full_name if initiative.planning_director else 'Sin director' }}</div>
+                  <div style="color:var(--color-text-muted);font-size:.78rem;">{{ initiative.formulation_leader.full_name if initiative.formulation_leader else 'Sin coordinador' }}</div>
+                </td>
+                <td>{{ initiative.deadline.strftime('%d/%m/%Y') if initiative.deadline else 'Sin plazo' }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="5"><div class="empty-state">Esta entidad aún no tiene iniciativas.</div></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="action-panel">
+        <div class="panel-label">Fuentes de financiamiento</div>
+        <div class="risk-grid" style="margin-top:14px;">
+          {% for source in sources %}
+            <div class="risk-banner info">
+              <i class="fa-solid fa-sack-dollar"></i>
+              <div>
+                <span class="risk-value">${{ "{:,.0f}".format(source.remaining_budget).replace(",", ".") }}</span>
+                <span class="risk-label">{{ source.code }} · disponible</span>
+              </div>
+            </div>
+          {% else %}
+            <div class="empty-state">Sin fuentes de financiamiento registradas.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <aside class="panel-stack">
+      <div class="action-panel is-dark">
+        <div class="panel-label">Lectura ejecutiva</div>
+        <h3 style="margin-top:8px;">{{ metrics.initiatives_approved }} iniciativas aprobadas</h3>
+        <p style="margin-top:10px;">
+          Esta ficha resume la salud operacional del tenant y permite detectar rápidamente
+          presión presupuestaria, ausencia de responsables y actividad reciente.
+        </p>
+      </div>
+
+      <div class="action-panel">
+        <div class="panel-label">Usuarios por rol</div>
+        <div style="display:grid;gap:10px;margin-top:14px;">
+          {% for role, count in role_counts.items() if count %}
+            <div style="display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid var(--color-border);padding-bottom:8px;">
+              <span style="color:var(--color-text-muted);font-size:.84rem;">{{ role }}</span>
+              <strong>{{ count }}</strong>
+            </div>
+          {% else %}
+            <div class="empty-state">Sin usuarios asociados.</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="action-panel">
+        <div class="panel-label">Cartera crítica</div>
+        <div style="display:grid;gap:10px;margin-top:14px;">
+          {% for initiative in critical %}
+            <a href="{{ url_for('superadmin.logs', entity_id=entity.id|string) }}" class="risk-banner {% if initiative.status == 'REJECTED' %}danger{% else %}warning{% endif %}">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <div>
+                <span class="risk-value" style="font-size:1rem;">{{ initiative.code }}</span>
+                <span class="risk-label">{{ initiative.title }}</span>
+              </div>
+            </a>
+          {% else %}
+            <div class="empty-state">Sin señales críticas relevantes.</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="action-panel">
+        <div class="panel-label">Actividad reciente</div>
+        <div class="timeline" style="margin-top:14px;">
+          {% for entry in recent_audit %}
+            <div class="timeline-item">
+              <strong>{{ entry.action }}</strong>
+              <div style="color:var(--color-text-muted);font-size:.82rem;">{{ entry.initiative.code }} · {{ entry.timestamp.strftime('%d/%m/%Y %H:%M') if entry.timestamp else '' }}</div>
+              <p style="margin-top:4px;">{{ entry.details }}</p>
+            </div>
+          {% else %}
+            <div class="empty-state">Sin actividad auditada.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+{% endblock %}
