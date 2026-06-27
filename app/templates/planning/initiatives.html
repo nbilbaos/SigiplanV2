@@ -2,128 +2,169 @@
 {% block title %}SIGIPLAN — Cartera de Iniciativas{% endblock %}
 {% block dashboard_title %}Cartera de Iniciativas{% endblock %}
 {% block dashboard_subtitle %}
-  {% if current_user.role == 'TECHNICAL_FORMULATOR' %}Iniciativas que tienes asignadas.
-  {% else %}Proyectos de inversión de {{ current_user.entity.name }}.{% endif %}
+  {% if current_user.role == 'TECHNICAL_FORMULATOR' %}Iniciativas asignadas a tu formulación técnica.
+  {% else %}Cartera ejecutiva de {{ current_user.entity.name }}.{% endif %}
 {% endblock %}
 
 {% block dashboard_content %}
 <div class="dashboard-content">
-
   {% set chips = [
-      ('',             'Todas',         counts.ALL),
-      ('DRAFT',        'Borrador',      counts.DRAFT),
-      ('IN_PROGRESS',  'En Formulación',counts.IN_PROGRESS),
-      ('UNDER_REVIEW', 'En Revisión',   counts.UNDER_REVIEW),
-      ('APPROVED',     'Aprobadas',     counts.APPROVED),
-      ('REJECTED',     'Devueltas',     counts.REJECTED),
-      ('ARCHIVED',     'Archivadas',    counts.ARCHIVED)
+      ('', 'Todas', counts.ALL),
+      ('DRAFT', 'Borrador', counts.DRAFT),
+      ('IN_PROGRESS', 'En formulación', counts.IN_PROGRESS),
+      ('UNDER_REVIEW', 'En revisión', counts.UNDER_REVIEW),
+      ('APPROVED', 'Aprobadas', counts.APPROVED),
+      ('REJECTED', 'Devueltas', counts.REJECTED),
+      ('ARCHIVED', 'Archivadas', counts.ARCHIVED)
   ] %}
 
-  <!-- Filtros: búsqueda + acción crear -->
-  <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
-    <form method="GET" style="display:flex;gap:8px;flex:1;min-width:240px;">
-      {% if selected_status %}<input type="hidden" name="status" value="{{ selected_status }}">{% endif %}
-      <input type="text" name="q" value="{{ search }}" class="form-control"
-             placeholder="Buscar por código o título…" style="padding:9px 12px;">
-      <button type="submit" class="btn btn-secondary btn-sm" style="padding:9px 18px;">
-        <i class="fa-solid fa-magnifying-glass"></i>
-      </button>
-      {% if search %}
-        <a href="{{ url_for('planning.initiatives', status=selected_status) }}" class="btn btn-sm"
-           style="padding:9px 14px;background:transparent;color:var(--color-text-muted);border:1px solid var(--color-border);">
-          <i class="fa-solid fa-xmark"></i>
+  <div class="section-header">
+    <div>
+      <div class="section-eyebrow">Cartera trazable</div>
+      <h2 class="section-title">Iniciativas, responsables y riesgos</h2>
+      <p class="section-subtitle">Filtra por estado, responsable, fuente o vencimiento para preparar una revisión ejecutiva en minutos.</p>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;" class="no-print">
+      {% if can_manage %}
+        <a href="{{ url_for('planning.create_initiative') }}" class="btn btn-primary btn-sm">
+          <i class="fa-solid fa-plus" style="margin-right:6px;"></i> Nueva iniciativa
         </a>
       {% endif %}
-    </form>
-    {% if can_manage %}
-      <a href="{{ url_for('planning.create_initiative') }}" class="btn btn-primary btn-sm">
-        <i class="fa-solid fa-plus" style="margin-right:6px;"></i> Nueva Iniciativa
-      </a>
-      <a href="{{ url_for('planning.trash') }}" class="btn btn-sm"
-         style="background:transparent;color:var(--color-text-muted);border:1px solid var(--color-border);">
-        <i class="fa-solid fa-trash-can" style="margin-right:6px;"></i> Papelera
-      </a>
-    {% endif %}
+      {% if current_user.role == 'PLANNING_DIRECTOR' %}
+        <a href="{{ url_for('planning.portfolio_export_csv') }}" class="btn btn-secondary btn-sm">
+          <i class="fa-solid fa-file-csv" style="margin-right:6px;"></i> CSV
+        </a>
+        <a href="{{ url_for('planning.executive_report') }}" class="btn btn-secondary btn-sm">
+          <i class="fa-solid fa-file-lines" style="margin-right:6px;"></i> Reporte
+        </a>
+      {% endif %}
+      {% if can_manage %}
+        <a href="{{ url_for('planning.trash') }}" class="btn btn-secondary btn-sm">
+          <i class="fa-solid fa-trash-can" style="margin-right:6px;"></i> Papelera
+        </a>
+      {% endif %}
+    </div>
   </div>
 
-  <!-- Chips de estado -->
-  <div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;">
+  <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;">
     {% for value, label, count in chips %}
-      <a href="{{ url_for('planning.initiatives', status=value, q=search) }}"
-         style="display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border-radius:20px;font-size:0.8rem;font-weight:700;text-decoration:none;
-         {% if selected_status == value %}background:var(--color-primary);color:#fff;
-         {% else %}background:var(--color-bg-card);color:var(--color-text-muted);border:1px solid var(--color-border);{% endif %}">
-        {{ label }}
-        <span style="font-size:0.72rem;padding:1px 7px;border-radius:10px;
-          {% if selected_status == value %}background:rgba(255,255,255,0.25);{% else %}background:var(--color-bg-base);{% endif %}">{{ count }}</span>
+      <a href="{{ url_for('planning.initiatives', status=value, q=search, responsible=responsible, funding=funding_id, due=due_filter, sort=sort) }}"
+         class="status-pill {% if selected_status == value %}status-IN_PROGRESS{% else %}status-DRAFT{% endif %}">
+        {{ label }} · {{ count }}
       </a>
     {% endfor %}
   </div>
 
-  <div class="card" style="padding:0;overflow:hidden;">
-    {% if initiatives %}
-      <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
-          <thead>
-            <tr style="background:var(--color-bg-base);">
-              <th style="padding:13px 20px;text-align:left;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;">Iniciativa</th>
-              <th style="padding:13px 16px;text-align:left;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;">Responsables</th>
-              <th style="padding:13px 16px;text-align:right;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;">Costo Est.</th>
-              <th style="padding:13px 16px;text-align:center;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;">Estado</th>
-              <th style="padding:13px 16px;text-align:center;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;">Plazo</th>
-              <th style="padding:13px 20px;text-align:right;font-size:0.72rem;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;font-weight:700;"></th>
+  <form method="GET" class="filter-bar">
+    <div>
+      <label class="form-label" for="q">Búsqueda</label>
+      <input id="q" type="text" name="q" value="{{ search }}" class="form-control" placeholder="Código o título">
+    </div>
+    <div>
+      <label class="form-label" for="responsible">Responsable</label>
+      <select id="responsible" name="responsible" class="form-control">
+        <option value="">Todos</option>
+        {% for group in [team.directors, team.leaders, team.formulators] %}
+          {% for user in group %}
+            <option value="{{ user.id|string }}" {% if responsible == user.id|string %}selected{% endif %}>{{ user.full_name }}</option>
+          {% endfor %}
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="form-label" for="funding">Fuente</label>
+      <select id="funding" name="funding" class="form-control">
+        <option value="">Todas</option>
+        {% for source in funding_sources %}
+          <option value="{{ source.id|string }}" {% if funding_id == source.id|string %}selected{% endif %}>{{ source.code }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="form-label" for="due">Riesgo/plazo</label>
+      <select id="due" name="due" class="form-control">
+        <option value="">Todos</option>
+        <option value="overdue" {% if due_filter == 'overdue' %}selected{% endif %}>Vencidas</option>
+        <option value="due_soon" {% if due_filter == 'due_soon' %}selected{% endif %}>Próximas 30 días</option>
+        <option value="no_deadline" {% if due_filter == 'no_deadline' %}selected{% endif %}>Sin plazo</option>
+        <option value="no_formulators" {% if due_filter == 'no_formulators' %}selected{% endif %}>Sin formulador</option>
+        <option value="no_funding" {% if due_filter == 'no_funding' %}selected{% endif %}>Sin fuente</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label" for="sort">Orden</label>
+      <select id="sort" name="sort" class="form-control">
+        <option value="-updated_at" {% if sort == '-updated_at' %}selected{% endif %}>Última actualización</option>
+        <option value="deadline" {% if sort == 'deadline' %}selected{% endif %}>Plazo</option>
+        <option value="-estimated_cost" {% if sort == '-estimated_cost' %}selected{% endif %}>Mayor costo</option>
+        <option value="status" {% if sort == 'status' %}selected{% endif %}>Estado</option>
+        <option value="code" {% if sort == 'code' %}selected{% endif %}>Código</option>
+      </select>
+    </div>
+    <div>
+      {% if selected_status %}<input type="hidden" name="status" value="{{ selected_status }}">{% endif %}
+      <button class="btn btn-primary btn-sm" type="submit" style="width:100%;">Filtrar</button>
+    </div>
+  </form>
+
+  {% if search or responsible or funding_id or due_filter %}
+    <div style="margin-bottom:16px;">
+      <a class="btn btn-secondary btn-sm" href="{{ url_for('planning.initiatives', status=selected_status) }}">
+        <i class="fa-solid fa-xmark" style="margin-right:6px;"></i> Limpiar filtros
+      </a>
+    </div>
+  {% endif %}
+
+  {% if initiatives %}
+    <div class="table-shell">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Iniciativa</th>
+            <th>Estado</th>
+            <th>Responsables</th>
+            <th>Fuente</th>
+            <th>Plazo</th>
+            <th>Costo</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for init in initiatives %}
+            <tr>
+              <td><strong>{{ init.code }}</strong></td>
+              <td>
+                <div style="font-weight:800;">{{ init.title }}</div>
+                <div style="color:var(--color-text-muted);font-size:0.78rem;">{{ init.attachments|length }} adjuntos · actualizado {{ init.updated_at.strftime('%d/%m/%Y') }}</div>
+              </td>
+              <td><span class="status-pill status-{{ init.status }}">{{ init.get_status_display() }}</span></td>
+              <td>
+                <div style="font-weight:700;">{{ init.planning_director.full_name if init.planning_director else 'Sin director' }}</div>
+                <div style="color:var(--color-text-muted);font-size:0.78rem;">{{ init.formulation_leader.full_name if init.formulation_leader else 'Sin coordinador' }}</div>
+              </td>
+              <td>
+                {% for source in init.funding_sources %}
+                  {% if source %}<span class="status-pill status-DRAFT">{{ source.code }}</span>{% endif %}
+                {% else %}
+                  <span style="color:var(--color-text-muted);">Sin fuente</span>
+                {% endfor %}
+              </td>
+              <td>{% if init.deadline %}{{ init.deadline.strftime('%d/%m/%Y') }}{% else %}Sin plazo{% endif %}</td>
+              <td><strong>${{ "{:,.0f}".format(init.estimated_cost or 0) }}</strong></td>
+              <td>
+                <a href="{{ url_for('planning.initiative_detail', initiative_id=init.id|string) }}" class="btn btn-secondary btn-sm">Ver</a>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {% for init in initiatives %}
-              <tr style="border-top:1px solid var(--color-border);" onmouseover="this.style.background='var(--color-bg-base)'" onmouseout="this.style.background=''">
-                <td style="padding:14px 20px;">
-                  <div style="font-weight:800;color:var(--color-primary);font-size:0.8rem;">{{ init.code }}</div>
-                  <div style="font-weight:600;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ init.title }}</div>
-                </td>
-                <td style="padding:14px 16px;font-size:0.8rem;color:var(--color-text-muted);">
-                  {% if init.formulation_leader %}
-                    <div><i class="fa-solid fa-user-tie" style="width:16px;color:var(--color-warning);"></i> {{ init.formulation_leader.full_name }}</div>
-                  {% endif %}
-                  <div><i class="fa-solid fa-users" style="width:16px;color:var(--color-info);"></i> {{ init.assigned_formulators|length }} formulador{{ 'es' if init.assigned_formulators|length != 1 else '' }}</div>
-                </td>
-                <td style="padding:14px 16px;text-align:right;font-weight:700;white-space:nowrap;">
-                  ${{ "{:,.0f}".format(init.estimated_cost or 0) }}
-                </td>
-                <td style="padding:14px 16px;text-align:center;">
-                  <span class="badge {% if init.status == 'DRAFT' %}badge-draft{% elif init.status == 'IN_PROGRESS' %}badge-progress{% elif init.status == 'UNDER_REVIEW' %}badge-review{% elif init.status == 'APPROVED' %}badge-approved{% elif init.status == 'REJECTED' %}badge-rejected{% else %}badge-draft{% endif %}">
-                    {{ init.get_status_display() }}
-                  </span>
-                </td>
-                <td style="padding:14px 16px;text-align:center;font-size:0.8rem;color:var(--color-text-muted);white-space:nowrap;">
-                  {% if init.deadline %}{{ init.deadline.strftime('%d/%m/%Y') }}{% else %}—{% endif %}
-                </td>
-                <td style="padding:14px 20px;text-align:right;">
-                  <a href="{{ url_for('planning.initiative_detail', initiative_id=init.id|string) }}" class="btn btn-secondary btn-sm" style="padding:5px 14px;font-size:0.78rem;">
-                    Ver Ficha
-                  </a>
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    {% else %}
-      <div style="padding:60px 24px;text-align:center;color:var(--color-text-muted);">
-        <i class="fa-solid fa-folder-open" style="font-size:2.5rem;opacity:0.3;display:block;margin-bottom:16px;"></i>
-        <p style="font-style:italic;margin-bottom:20px;">
-          {% if search or selected_status %}No hay iniciativas que coincidan con el filtro.
-          {% else %}Aún no hay iniciativas registradas.{% endif %}
-        </p>
-        {% if can_manage and not search and not selected_status %}
-          <a href="{{ url_for('planning.create_initiative') }}" class="btn btn-primary btn-sm">
-            <i class="fa-solid fa-plus" style="margin-right:6px;"></i> Crear la primera iniciativa
-          </a>
-        {% elif search or selected_status %}
-          <a href="{{ url_for('planning.initiatives') }}" class="btn btn-secondary btn-sm">Limpiar filtros</a>
-        {% endif %}
-      </div>
-    {% endif %}
-  </div>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <i class="fa-solid fa-folder-open"></i>
+      No hay iniciativas que coincidan con los filtros actuales.
+    </div>
+  {% endif %}
 </div>
 {% endblock %}

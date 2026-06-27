@@ -1,7 +1,15 @@
 from flask import render_template, redirect, url_for, flash, request, abort
 from flask_login import login_required, current_user
 from app.blueprints.admin import admin_bp
+from app.services.audit import log_event
+from app.services.exceptions import ServiceError
+from app.services.user import UserService
 from app.utils.decorators import role_required
+from app.utils.tenant import (
+    tenant_funding_sources,
+    tenant_initiatives,
+    tenant_users,
+)
 
 # Roles que el Entity Admin puede crear/asignar (no SUPER_ADMIN ni ENTITY_ADMIN)
 ALLOWED_ROLES = [
@@ -26,16 +34,12 @@ AUDIT_ACTIONS = ['CREATE', 'UPDATE', 'SUBMIT_FOR_REVIEW', 'APPROVE', 'REJECT', '
 @login_required
 @role_required('ENTITY_ADMIN')
 def dashboard():
-    from app.models.user import User
-    from app.models.initiative import Initiative
-    from app.models.funding import FundingSource
-
     entity = current_user.entity
 
-    users_active   = User.objects(entity=entity, is_active=True).count()
-    users_total    = User.objects(entity=entity).count()
+    users_active   = tenant_users(entity=entity, is_active=True).count()
+    users_total    = tenant_users(entity=entity).count()
 
-    base = Initiative.objects(entity=entity, is_deleted=False)
+    base = tenant_initiatives(entity=entity)
     initiatives_total    = base.count()
     initiatives_draft    = base.filter(status='DRAFT').count()
     initiatives_progress = base.filter(status='IN_PROGRESS').count()
@@ -43,7 +47,7 @@ def dashboard():
     initiatives_approved = base.filter(status='APPROVED').count()
     initiatives_rejected = base.filter(status='REJECTED').count()
 
-    funding_sources = FundingSource.objects(entity=entity, is_active=True)
+    funding_sources = tenant_funding_sources(entity=entity, is_active=True)
     budget_total     = sum(f.total_budget for f in funding_sources)
     budget_allocated = sum(f.allocated_budget for f in funding_sources)
     budget_available = max(0.0, budget_total - budget_allocated)
@@ -69,9 +73,8 @@ def dashboard():
 @login_required
 @role_required('ENTITY_ADMIN')
 def users():
-    from app.models.user import User
     role_filter = request.args.get('role', '').strip()
-    query = User.objects(entity=current_user.entity)
+    query = tenant_users()
     if role_filter and role_filter in ALLOWED_ROLES:
         query = query.filter(role=role_filter)
     return render_template('admin/users.html',
@@ -85,8 +88,6 @@ def users():
 @login_required
 @role_required('ENTITY_ADMIN')
 def user_create():
-    from app.models.user import User
-
     if request.method == 'POST':
         first_name = request.form.get('first_name', '').strip()
         last_name  = request.form.get('last_name', '').strip()
@@ -98,13 +99,9 @@ def user_create():
         if not first_name: errors.append('El nombre es obligatorio.')
         if not last_name:  errors.append('El apellido es obligatorio.')
         if not email:      errors.append('El email es obligatorio.')
-        if role not in ALLOWED_ROLES:
-            errors.append('Rol no permitido para este nivel de administración.')
         if not password:   errors.append('La contraseña es obligatoria.')
         elif len(password) < 8:
             errors.append('La contraseña debe tener al menos 8 caracteres.')
-        if email and User.objects(email=email).first():
-            errors.append('Ya existe un usuario con ese email.')
 
         if errors:
             for e in errors: flash(e, 'danger')
@@ -113,11 +110,24 @@ def user_create():
             return render_template('admin/user_form.html', action='create', data=data,
                                    roles=ALLOWED_ROLES, role_labels=ROLE_LABELS)
 
-        user = User(first_name=first_name, last_name=last_name,
-                    email=email, role=role,
-                    entity=current_user.entity, is_active=True)
-        user.set_password(password)
-        user.save()
+        try:
+            user = UserService.create_for_entity(
+                entity=current_user.entity,
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                role=role,
+                password=password,
+                allowed_roles=ALLOWED_ROLES,
+                actor=current_user,
+            )
+        except ServiceError as exc:
+            flash(str(exc), 'danger')
+            data = dict(first_name=first_name, last_name=last_name,
+                        email=email, role=role)
+            return render_template('admin/user_form.html', action='create', data=data,
+                                   roles=ALLOWED_ROLES, role_labels=ROLE_LABELS)
+
         flash(f'Usuario "{user.full_name}" creado exitosamente.', 'success')
         return redirect(url_for('admin.users'))
 
@@ -130,10 +140,8 @@ def user_create():
 @login_required
 @role_required('ENTITY_ADMIN')
 def user_edit(user_id):
-    from app.models.user import User
-
     try:
-        user = User.objects(id=user_id, entity=current_user.entity).first()
+        user = tenant_users(id=user_id).first()
     except Exception:
         user = None
     if not user:
@@ -151,12 +159,8 @@ def user_edit(user_id):
         if not first_name: errors.append('El nombre es obligatorio.')
         if not last_name:  errors.append('El apellido es obligatorio.')
         if not email:      errors.append('El email es obligatorio.')
-        if role not in ALLOWED_ROLES:
-            errors.append('Rol no permitido para este nivel de administración.')
         if password and len(password) < 8:
             errors.append('La contraseña debe tener al menos 8 caracteres.')
-        if email and User.objects(email=email, id__ne=user.id).first():
-            errors.append('Ya existe otro usuario con ese email.')
 
         if errors:
             for e in errors: flash(e, 'danger')
@@ -165,14 +169,24 @@ def user_edit(user_id):
             return render_template('admin/user_form.html', action='edit', data=data,
                                    user=user, roles=ALLOWED_ROLES, role_labels=ROLE_LABELS)
 
-        user.first_name = first_name
-        user.last_name  = last_name
-        user.email      = email
-        user.role       = role
-        user.is_active  = is_active
-        if password:
-            user.set_password(password)
-        user.save()
+        try:
+            UserService.update_for_entity(
+                user,
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                role=role,
+                password=password,
+                is_active=is_active,
+                allowed_roles=ALLOWED_ROLES,
+                actor=current_user,
+            )
+        except ServiceError as exc:
+            flash(str(exc), 'danger')
+            data = dict(first_name=first_name, last_name=last_name,
+                        email=email, role=role, is_active=is_active)
+            return render_template('admin/user_form.html', action='edit', data=data,
+                                   user=user, roles=ALLOWED_ROLES, role_labels=ROLE_LABELS)
         flash(f'Usuario "{user.full_name}" actualizado correctamente.', 'success')
         return redirect(url_for('admin.users'))
 
@@ -186,10 +200,8 @@ def user_edit(user_id):
 @login_required
 @role_required('ENTITY_ADMIN')
 def user_toggle(user_id):
-    from app.models.user import User
-
     try:
-        user = User.objects(id=user_id, entity=current_user.entity).first()
+        user = tenant_users(id=user_id).first()
     except Exception:
         user = None
     if not user:
@@ -197,6 +209,14 @@ def user_toggle(user_id):
 
     user.is_active = not user.is_active
     user.save()
+    log_event(
+        actor=current_user,
+        entity=current_user.entity,
+        action='USER_TOGGLE',
+        target=user,
+        target_type='User',
+        details=f'Usuario {"activado" if user.is_active else "desactivado"}: {user.email}.',
+    )
     estado = 'activado' if user.is_active else 'desactivado'
     flash(f'Usuario "{user.full_name}" {estado} correctamente.', 'success')
     return redirect(url_for('admin.users'))
@@ -208,8 +228,7 @@ def user_toggle(user_id):
 @login_required
 @role_required('ENTITY_ADMIN')
 def funding():
-    from app.models.funding import FundingSource
-    sources = FundingSource.objects(entity=current_user.entity).order_by('name')
+    sources = tenant_funding_sources().order_by('name')
     return render_template('admin/funding.html', sources=sources)
 
 
@@ -217,8 +236,6 @@ def funding():
 @login_required
 @role_required('ENTITY_ADMIN')
 def funding_create():
-    from app.models.funding import FundingSource
-
     if request.method == 'POST':
         name         = request.form.get('name', '').strip()
         code         = request.form.get('code', '').strip().upper()
@@ -236,7 +253,7 @@ def funding_create():
             except ValueError:
                 errors.append('El presupuesto debe ser un número válido.')
                 total_budget = ''
-        if code and FundingSource.objects(entity=current_user.entity, code=code).first():
+        if code and tenant_funding_sources(code=code).first():
             errors.append(f'Ya existe una fuente con el código "{code}" en esta entidad.')
 
         if errors:
@@ -244,9 +261,24 @@ def funding_create():
             data = dict(name=name, code=code, total_budget=total_budget)
             return render_template('admin/funding_form.html', action='create', data=data)
 
-        FundingSource(entity=current_user.entity, name=name, code=code,
-                      total_budget=float(total_budget), allocated_budget=0.0,
-                      is_active=True).save()
+        from app.models.funding import FundingSource
+        source = FundingSource(
+            entity=current_user.entity,
+            name=name,
+            code=code,
+            total_budget=float(total_budget),
+            allocated_budget=0.0,
+            is_active=True,
+        )
+        source.save()
+        log_event(
+            actor=current_user,
+            entity=current_user.entity,
+            action='FUNDING_SOURCE_CREATE',
+            target=source,
+            target_type='FundingSource',
+            details=f'Fuente creada: {code}.',
+        )
         flash(f'Fuente "{name}" creada exitosamente.', 'success')
         return redirect(url_for('admin.funding'))
 
@@ -258,10 +290,8 @@ def funding_create():
 @login_required
 @role_required('ENTITY_ADMIN')
 def funding_edit(source_id):
-    from app.models.funding import FundingSource
-
     try:
-        source = FundingSource.objects(id=source_id, entity=current_user.entity).first()
+        source = tenant_funding_sources(id=source_id).first()
     except Exception:
         source = None
     if not source:
@@ -284,8 +314,7 @@ def funding_edit(source_id):
             except ValueError:
                 errors.append('El presupuesto debe ser un número válido.')
                 total_budget = ''
-        if code and FundingSource.objects(
-                entity=current_user.entity, code=code, id__ne=source.id).first():
+        if code and tenant_funding_sources(code=code, id__ne=source.id).first():
             errors.append(f'Ya existe otra fuente con el código "{code}".')
 
         if errors:
@@ -298,6 +327,14 @@ def funding_edit(source_id):
         source.code         = code
         source.total_budget = float(total_budget)
         source.save()
+        log_event(
+            actor=current_user,
+            entity=current_user.entity,
+            action='FUNDING_SOURCE_UPDATE',
+            target=source,
+            target_type='FundingSource',
+            details=f'Fuente actualizada: {source.code}.',
+        )
         flash(f'Fuente "{name}" actualizada correctamente.', 'success')
         return redirect(url_for('admin.funding'))
 
@@ -311,10 +348,8 @@ def funding_edit(source_id):
 @login_required
 @role_required('ENTITY_ADMIN')
 def funding_toggle(source_id):
-    from app.models.funding import FundingSource
-
     try:
-        source = FundingSource.objects(id=source_id, entity=current_user.entity).first()
+        source = tenant_funding_sources(id=source_id).first()
     except Exception:
         source = None
     if not source:
@@ -322,6 +357,14 @@ def funding_toggle(source_id):
 
     source.is_active = not source.is_active
     source.save()
+    log_event(
+        actor=current_user,
+        entity=current_user.entity,
+        action='FUNDING_SOURCE_TOGGLE',
+        target=source,
+        target_type='FundingSource',
+        details=f'Fuente {"activada" if source.is_active else "desactivada"}: {source.code}.',
+    )
     estado = 'activada' if source.is_active else 'desactivada'
     flash(f'Fuente "{source.name}" {estado} correctamente.', 'success')
     return redirect(url_for('admin.funding'))
@@ -355,7 +398,6 @@ def entity_address():
 @role_required('ENTITY_ADMIN')
 def logs():
     from datetime import datetime
-    from app.models.initiative import Initiative
 
     action_filter = request.args.get('action', '').strip()
     date_from     = request.args.get('date_from', '').strip()
@@ -370,7 +412,7 @@ def logs():
         except ValueError: pass
 
     entries = []
-    for initiative in Initiative.objects(entity=current_user.entity):
+    for initiative in tenant_initiatives(include_deleted=True):
         for entry in initiative.audit_trail:
             if action_filter and entry.action != action_filter:
                 continue

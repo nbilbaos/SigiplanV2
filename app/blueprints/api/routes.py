@@ -2,6 +2,13 @@ from flask import jsonify, request
 from flask_login import login_required, current_user
 from app.blueprints.api import api_bp
 from app.utils.decorators import role_required
+from app.utils.executive import build_executive_context
+from app.utils.tenant import (
+    tenant_funding_sources,
+    tenant_initiatives,
+    tenant_users,
+    visible_tenant_initiatives,
+)
 
 # Roles con entidad que pueden consultar datos de iniciativas
 INITIATIVE_ROLES = [
@@ -20,12 +27,7 @@ def _iso(dt):
 
 
 def _scoped_initiatives():
-    """Iniciativas de la entidad del usuario; el Formulador Técnico solo ve las suyas."""
-    from app.models.initiative import Initiative
-    q = Initiative.objects(entity=current_user.entity, is_deleted=False)
-    if current_user.role == 'TECHNICAL_FORMULATOR':
-        q = q.filter(assigned_formulators=current_user.id)
-    return q
+    return visible_tenant_initiatives()
 
 
 # ─── Organigrama (datos para visualización tipo grafo) ────────────────────────
@@ -34,9 +36,7 @@ def _scoped_initiatives():
 @login_required
 @role_required('ENTITY_ADMIN', 'PLANNING_DIRECTOR', 'FORMULATION_LEADER')
 def org_data():
-    from app.models.user import User
-
-    users = User.objects(entity=current_user.entity)
+    users = tenant_users()
     by_role = {tier: list(users.filter(role=tier).order_by('first_name')) for tier in ROLE_TIERS}
 
     nodes, edges = [], []
@@ -99,15 +99,11 @@ def initiatives():
 @login_required
 @role_required('ENTITY_ADMIN', 'PLANNING_DIRECTOR')
 def funding_sources():
-    from app.models.funding import FundingSource
-    from app.models.initiative import Initiative
-
-    sources = FundingSource.objects(entity=current_user.entity).order_by('name')
+    sources = tenant_funding_sources().order_by('name')
 
     items = []
     for s in sources:
-        usage = Initiative.objects(
-            entity=current_user.entity, is_deleted=False, funding_sources=s.id).count()
+        usage = tenant_initiatives(funding_sources=s).count()
         items.append({
             'id': str(s.id),
             'name': s.name,
@@ -129,7 +125,6 @@ def funding_sources():
 def dashboard_metrics():
     from app.models.user import User
     from app.models.initiative import Initiative
-    from app.models.funding import FundingSource
 
     role = current_user.role
 
@@ -148,15 +143,15 @@ def dashboard_metrics():
     entity = current_user.entity
 
     if role == 'ENTITY_ADMIN':
-        base = Initiative.objects(entity=entity, is_deleted=False)
-        sources = FundingSource.objects(entity=entity, is_active=True)
+        base = tenant_initiatives(entity=entity)
+        sources = tenant_funding_sources(entity=entity, is_active=True)
         budget_total = sum(s.total_budget for s in sources)
         budget_allocated = sum(s.allocated_budget for s in sources)
         return jsonify({
             'role': role,
             'metrics': {
-                'users': User.objects(entity=entity).count(),
-                'users_active': User.objects(entity=entity, is_active=True).count(),
+                'users': tenant_users(entity=entity).count(),
+                'users_active': tenant_users(entity=entity, is_active=True).count(),
                 'initiatives': base.count(),
                 'by_status': {s: base.filter(status=s).count() for s in
                               ['DRAFT', 'IN_PROGRESS', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'ARCHIVED']},
@@ -178,3 +173,25 @@ def dashboard_metrics():
         })
 
     return jsonify({'role': role, 'metrics': {}})
+
+
+@api_bp.route('/executive-metrics')
+@login_required
+@role_required('SUPER_ADMIN', 'ENTITY_ADMIN', 'PLANNING_DIRECTOR', 'FORMULATION_LEADER', 'TECHNICAL_FORMULATOR')
+def executive_metrics():
+    metrics = build_executive_context(current_user)
+    return jsonify({
+        'scope': metrics['scope_label'],
+        'initiatives_total': metrics['initiatives_total'],
+        'estimated_total': metrics['estimated_total'],
+        'status_counts': metrics['status_counts'],
+        'risks': [
+            {key: item[key] for key in ('key', 'label', 'value', 'tone')}
+            for item in metrics['risks']
+        ],
+        'funding': {
+            'total': metrics['funding_total'],
+            'allocated': metrics['funding_allocated'],
+            'available': metrics['funding_available'],
+        },
+    })

@@ -1,7 +1,14 @@
 from flask import render_template, redirect, url_for, flash, request, abort
-from flask_login import login_required
+from flask_login import current_user, login_required
 from app.blueprints.superadmin import superadmin_bp
+from app.services.audit import log_event
 from app.utils.decorators import role_required
+from app.utils.executive import STATUS_LABELS, STATUS_ORDER
+from app.utils.tenant import (
+    tenant_funding_sources,
+    tenant_initiatives,
+    tenant_users,
+)
 
 ROLES = [
     'SUPER_ADMIN',
@@ -19,7 +26,50 @@ AUDIT_ACTIONS = [
     'REJECT',
     'SOFT_DELETE',
     'RESTORE',
+    'ENTITY_CREATE',
+    'ENTITY_UPDATE',
+    'ENTITY_TOGGLE',
+    'ENTITY_RESTORE',
+    'LOGIN',
+    'LOGIN_FAILED',
+    'LOGOUT',
+    'USER_CREATE',
+    'USER_UPDATE',
+    'USER_TOGGLE',
+    'FUNDING_SOURCE_CREATE',
+    'FUNDING_SOURCE_UPDATE',
+    'FUNDING_SOURCE_TOGGLE',
 ]
+
+
+def _get_entity(entity_id):
+    from app.models.entity import Entity
+
+    try:
+        entity = Entity.objects(id=entity_id).first()
+    except Exception:
+        entity = None
+    if not entity:
+        abort(404)
+    return entity
+
+
+def _audit_entries_for(initiatives, limit=10):
+    from datetime import datetime
+
+    entries = []
+    for initiative in initiatives:
+        for entry in initiative.audit_trail:
+            entries.append({
+                'timestamp': entry.timestamp,
+                'user': entry.user,
+                'action': entry.action,
+                'details': entry.details or '',
+                'initiative': initiative,
+                'entity': initiative.entity,
+            })
+    entries.sort(key=lambda item: item['timestamp'] or datetime.min, reverse=True)
+    return entries[:limit]
 
 
 # ─── Dashboard ───────────────────────────────────────────────────────────────
@@ -50,9 +100,9 @@ def index():
     for entity in entities:
         entities_stats.append({
             'entity': entity,
-            'users_count': User.objects(entity=entity).count(),
-            'initiatives_count': Initiative.objects(entity=entity, is_deleted=False).count(),
-            'initiatives_approved': Initiative.objects(entity=entity, is_deleted=False, status='APPROVED').count(),
+            'users_count': tenant_users(entity=entity).count(),
+            'initiatives_count': tenant_initiatives(entity=entity).count(),
+            'initiatives_approved': tenant_initiatives(entity=entity, status='APPROVED').count(),
         })
 
     recent_users = User.objects.order_by('-created_at')[:8]
@@ -70,19 +120,143 @@ def index():
 @role_required('SUPER_ADMIN')
 def entities():
     from app.models.entity import Entity
-    from app.models.user import User
-    from app.models.initiative import Initiative
 
     all_entities = Entity.objects.order_by('name')
     entities_stats = []
     for entity in all_entities:
         entities_stats.append({
             'entity': entity,
-            'users_count': User.objects(entity=entity).count(),
-            'initiatives_count': Initiative.objects(entity=entity, is_deleted=False).count(),
+            'users_count': tenant_users(entity=entity).count(),
+            'initiatives_count': tenant_initiatives(entity=entity).count(),
         })
 
     return render_template('superadmin/entities.html', entities_stats=entities_stats)
+
+
+@superadmin_bp.route('/entities/<entity_id>')
+@login_required
+@role_required('SUPER_ADMIN')
+def entity_detail(entity_id):
+    entity = _get_entity(entity_id)
+    users = list(tenant_users(entity=entity).order_by('role', 'last_name', 'first_name'))
+    initiatives = list(tenant_initiatives(entity=entity).order_by('-updated_at'))
+    sources = list(tenant_funding_sources(entity=entity).order_by('name'))
+
+    status_counts = {
+        status: sum(1 for item in initiatives if item.status == status)
+        for status in STATUS_ORDER
+    }
+    role_counts = {role: sum(1 for user in users if user.role == role) for role in ROLES}
+    budget_total = sum(source.total_budget or 0 for source in sources)
+    budget_allocated = sum(source.allocated_budget or 0 for source in sources)
+    estimated_total = sum(item.estimated_cost or 0 for item in initiatives)
+    active_work = [item for item in initiatives if item.status not in ('APPROVED', 'ARCHIVED')]
+
+    metrics = {
+        'users_total': len(users),
+        'users_active': sum(1 for user in users if user.is_active),
+        'initiatives_total': len(initiatives),
+        'initiatives_active': len(active_work),
+        'initiatives_approved': status_counts.get('APPROVED', 0),
+        'estimated_total': estimated_total,
+        'budget_total': budget_total,
+        'budget_allocated': budget_allocated,
+        'budget_available': max(0, budget_total - budget_allocated),
+        'sources_total': len(sources),
+    }
+
+    critical = [
+        item for item in initiatives
+        if item.status == 'REJECTED'
+        or (not [f for f in item.assigned_formulators if f] and item.status not in ('APPROVED', 'ARCHIVED'))
+        or (not [s for s in item.funding_sources if s] and item.status not in ('APPROVED', 'ARCHIVED'))
+    ][:8]
+
+    return render_template(
+        'superadmin/entity_detail.html',
+        entity=entity,
+        metrics=metrics,
+        status_counts=status_counts,
+        status_labels=STATUS_LABELS,
+        status_order=STATUS_ORDER,
+        role_counts=role_counts,
+        users=users,
+        initiatives=initiatives[:10],
+        top_initiatives=sorted(initiatives, key=lambda item: item.estimated_cost or 0, reverse=True)[:6],
+        critical=critical,
+        sources=sources,
+        recent_audit=_audit_entries_for(initiatives, limit=10),
+    )
+
+
+@superadmin_bp.route('/statistics')
+@login_required
+@role_required('SUPER_ADMIN')
+def statistics():
+    from app.models.entity import Entity
+    from app.models.user import User
+    from app.models.initiative import Initiative
+    from app.models.funding import FundingSource
+
+    entities = list(Entity.objects.order_by('name'))
+    initiatives = list(Initiative.objects(is_deleted=False))
+    sources = list(FundingSource.objects)
+
+    status_counts = {
+        status: sum(1 for item in initiatives if item.status == status)
+        for status in STATUS_ORDER
+    }
+    plan_counts = {
+        plan: sum(1 for entity in entities if entity.subscription_plan == plan)
+        for plan in ('Standard', 'Premium', 'Enterprise')
+    }
+    budget_total = sum(source.total_budget or 0 for source in sources)
+    budget_allocated = sum(source.allocated_budget or 0 for source in sources)
+    estimated_total = sum(item.estimated_cost or 0 for item in initiatives)
+
+    entity_rows = []
+    for entity in entities:
+        entity_inits = [item for item in initiatives if item.entity and item.entity.id == entity.id]
+        entity_sources = [source for source in sources if source.entity and source.entity.id == entity.id]
+        row_estimated = sum(item.estimated_cost or 0 for item in entity_inits)
+        row_budget = sum(source.total_budget or 0 for source in entity_sources)
+        entity_rows.append({
+            'entity': entity,
+            'users': tenant_users(entity=entity).count(),
+            'initiatives': len(entity_inits),
+            'approved': sum(1 for item in entity_inits if item.status == 'APPROVED'),
+            'rejected': sum(1 for item in entity_inits if item.status == 'REJECTED'),
+            'estimated_total': row_estimated,
+            'budget_total': row_budget,
+            'execution_pressure': (row_estimated / row_budget * 100) if row_budget else 0,
+        })
+    entity_rows.sort(key=lambda item: item['estimated_total'], reverse=True)
+
+    platform = {
+        'entities_total': len(entities),
+        'entities_active': sum(1 for entity in entities if entity.is_active),
+        'users_total': User.objects.count(),
+        'users_active': User.objects(is_active=True).count(),
+        'initiatives_total': len(initiatives),
+        'estimated_total': estimated_total,
+        'budget_total': budget_total,
+        'budget_allocated': budget_allocated,
+        'budget_available': max(0, budget_total - budget_allocated),
+        'approval_rate': (status_counts.get('APPROVED', 0) / len(initiatives) * 100) if initiatives else 0,
+        'review_load': status_counts.get('UNDER_REVIEW', 0),
+        'rejected_load': status_counts.get('REJECTED', 0),
+    }
+
+    return render_template(
+        'superadmin/statistics.html',
+        platform=platform,
+        status_counts=status_counts,
+        status_labels=STATUS_LABELS,
+        status_order=STATUS_ORDER,
+        plan_counts=plan_counts,
+        entity_rows=entity_rows,
+        recent_audit=_audit_entries_for(initiatives, limit=12),
+    )
 
 
 @superadmin_bp.route('/entities/create', methods=['GET', 'POST'])
@@ -90,9 +264,11 @@ def entities():
 @role_required('SUPER_ADMIN')
 def entity_create():
     from app.models.entity import Entity
+    from app.utils.slug import slugify
 
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
+        slug = request.form.get('slug', '').strip()
         tax_id = request.form.get('tax_id', '').strip()
         address = request.form.get('address', '').strip()
         subscription_plan = request.form.get('subscription_plan', 'Standard')
@@ -108,19 +284,34 @@ def entity_create():
             errors.append('Ya existe una entidad registrada con ese nombre.')
         if tax_id and Entity.objects(tax_id=tax_id).first():
             errors.append('Ya existe una entidad registrada con ese RUT / Tax ID.')
+        normalized_slug = slugify(slug) if slug else ''
+        if slug and not normalized_slug:
+            errors.append('El slug debe contener letras o números.')
+        if normalized_slug and Entity.objects(slug=normalized_slug).first():
+            errors.append('Ya existe una entidad registrada con ese slug.')
 
         if errors:
             for err in errors:
                 flash(err, 'danger')
-            data = {'name': name, 'tax_id': tax_id, 'address': address, 'subscription_plan': subscription_plan}
+            data = {'name': name, 'slug': slug, 'tax_id': tax_id, 'address': address, 'subscription_plan': subscription_plan}
             return render_template('superadmin/entity_form.html', action='create', data=data)
 
-        Entity(name=name, tax_id=tax_id, address=address,
-               subscription_plan=subscription_plan, is_active=True).save()
+        entity = Entity(name=name, tax_id=tax_id, address=address,
+                        slug=normalized_slug,
+                        subscription_plan=subscription_plan, is_active=True)
+        entity.save()
+        log_event(
+            actor=current_user,
+            entity=entity,
+            action='ENTITY_CREATE',
+            target=entity,
+            target_type='Entity',
+            details=f'Entidad creada: {entity.name}.',
+        )
         flash(f'Entidad "{name}" creada exitosamente.', 'success')
         return redirect(url_for('superadmin.entities'))
 
-    data = {'name': '', 'tax_id': '', 'address': '', 'subscription_plan': 'Standard'}
+    data = {'name': '', 'slug': '', 'tax_id': '', 'address': '', 'subscription_plan': 'Standard'}
     return render_template('superadmin/entity_form.html', action='create', data=data)
 
 
@@ -129,6 +320,7 @@ def entity_create():
 @role_required('SUPER_ADMIN')
 def entity_edit(entity_id):
     from app.models.entity import Entity
+    from app.utils.slug import slugify
 
     try:
         entity = Entity.objects(id=entity_id).first()
@@ -139,6 +331,7 @@ def entity_edit(entity_id):
 
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
+        slug = request.form.get('slug', '').strip()
         tax_id = request.form.get('tax_id', '').strip()
         address = request.form.get('address', '').strip()
         subscription_plan = request.form.get('subscription_plan', 'Standard')
@@ -154,23 +347,38 @@ def entity_edit(entity_id):
             errors.append('Ya existe otra entidad con ese nombre.')
         if tax_id and Entity.objects(tax_id=tax_id, id__ne=entity.id).first():
             errors.append('Ya existe otra entidad con ese RUT / Tax ID.')
+        normalized_slug = slugify(slug) if slug else ''
+        if slug and not normalized_slug:
+            errors.append('El slug debe contener letras o números.')
+        if normalized_slug and Entity.objects(slug=normalized_slug, id__ne=entity.id).first():
+            errors.append('Ya existe otra entidad con ese slug.')
 
         if errors:
             for err in errors:
                 flash(err, 'danger')
-            data = {'name': name, 'tax_id': tax_id, 'address': address, 'subscription_plan': subscription_plan}
+            data = {'name': name, 'slug': slug, 'tax_id': tax_id, 'address': address, 'subscription_plan': subscription_plan}
             return render_template('superadmin/entity_form.html', action='edit', entity=entity, data=data)
 
         entity.name = name
+        entity.slug = normalized_slug
         entity.tax_id = tax_id
         entity.address = address
         entity.subscription_plan = subscription_plan
         entity.save()
+        log_event(
+            actor=current_user,
+            entity=entity,
+            action='ENTITY_UPDATE',
+            target=entity,
+            target_type='Entity',
+            details=f'Entidad actualizada: {entity.name}.',
+        )
         flash(f'Entidad "{name}" actualizada correctamente.', 'success')
         return redirect(url_for('superadmin.entities'))
 
     data = {
         'name': entity.name,
+        'slug': entity.slug or '',
         'tax_id': entity.tax_id,
         'address': entity.address or '',
         'subscription_plan': entity.subscription_plan,
@@ -191,8 +399,29 @@ def entity_toggle(entity_id):
     if not entity:
         abort(404)
 
+    if entity.is_deleted:
+        entity.restore()
+        log_event(
+            actor=current_user,
+            entity=entity,
+            action='ENTITY_RESTORE',
+            target=entity,
+            target_type='Entity',
+            details=f'Entidad restaurada: {entity.name}.',
+        )
+        flash(f'Entidad "{entity.name}" restaurada y activada correctamente.', 'success')
+        return redirect(url_for('superadmin.entities'))
+
     entity.is_active = not entity.is_active
     entity.save()
+    log_event(
+        actor=current_user,
+        entity=entity,
+        action='ENTITY_TOGGLE',
+        target=entity,
+        target_type='Entity',
+        details=f'Entidad {"activada" if entity.is_active else "desactivada"}: {entity.name}.',
+    )
     estado = 'activada' if entity.is_active else 'desactivada'
     flash(f'Entidad "{entity.name}" {estado} correctamente.', 'success')
     return redirect(url_for('superadmin.entities'))
@@ -291,6 +520,14 @@ def user_create():
                     email=email, role=role, entity=entity, is_active=True)
         user.set_password(password)
         user.save()
+        log_event(
+            actor=current_user,
+            entity=user.entity,
+            action='USER_CREATE',
+            target=user,
+            target_type='User',
+            details=f'Usuario creado: {user.email}.',
+        )
         flash(f'Usuario "{user.full_name}" creado exitosamente.', 'success')
         return redirect(url_for('superadmin.users'))
 
@@ -307,7 +544,6 @@ def user_create():
 def user_edit(user_id):
     from app.models.user import User
     from app.models.entity import Entity
-    from flask_login import current_user
 
     try:
         user = User.objects(id=user_id).first()
@@ -372,6 +608,14 @@ def user_edit(user_id):
         if password:
             user.set_password(password)
         user.save()
+        log_event(
+            actor=current_user,
+            entity=user.entity,
+            action='USER_UPDATE',
+            target=user,
+            target_type='User',
+            details=f'Usuario actualizado: {user.email}.',
+        )
         flash(f'Usuario "{user.full_name}" actualizado correctamente.', 'success')
         return redirect(url_for('superadmin.users'))
 
@@ -393,8 +637,6 @@ def user_edit(user_id):
 @role_required('SUPER_ADMIN')
 def user_toggle(user_id):
     from app.models.user import User
-    from flask_login import current_user
-
     try:
         user = User.objects(id=user_id).first()
     except Exception:
@@ -408,6 +650,14 @@ def user_toggle(user_id):
 
     user.is_active = not user.is_active
     user.save()
+    log_event(
+        actor=current_user,
+        entity=user.entity,
+        action='USER_TOGGLE',
+        target=user,
+        target_type='User',
+        details=f'Usuario {"activado" if user.is_active else "desactivado"}: {user.email}.',
+    )
     estado = 'activado' if user.is_active else 'desactivado'
     flash(f'Usuario "{user.full_name}" {estado} correctamente.', 'success')
     return redirect(url_for('superadmin.users'))
@@ -421,23 +671,22 @@ def user_toggle(user_id):
 def logs():
     from datetime import datetime
     from app.models.entity import Entity
-    from app.models.initiative import Initiative
+    from app.models.log import ActivityLog
 
-    entity_id    = request.args.get('entity_id', '').strip()
+    entity_id = request.args.get('entity_id', '').strip()
     action_filter = request.args.get('action', '').strip()
-    date_from    = request.args.get('date_from', '').strip()
-    date_to      = request.args.get('date_to', '').strip()
+    date_from = request.args.get('date_from', '').strip()
+    date_to = request.args.get('date_to', '').strip()
 
-    init_query = Initiative.objects
+    query = ActivityLog.objects
     if entity_id:
         try:
             entity_obj = Entity.objects(id=entity_id).first()
             if entity_obj:
-                init_query = init_query.filter(entity=entity_obj)
+                query = query.filter(entity=entity_obj)
         except Exception:
             pass
 
-    # Convertir fechas de filtro
     dt_from = dt_to = None
     if date_from:
         try:
@@ -450,30 +699,29 @@ def logs():
         except ValueError:
             pass
 
-    # Aplanar audit_trail de todas las iniciativas
-    entries = []
-    for initiative in init_query:
-        for entry in initiative.audit_trail:
-            if action_filter and entry.action != action_filter:
-                continue
-            if dt_from and entry.timestamp < dt_from:
-                continue
-            if dt_to and entry.timestamp > dt_to:
-                continue
-            entries.append({
-                'timestamp':        entry.timestamp,
-                'user':             entry.user,
-                'action':           entry.action,
-                'details':          entry.details or '',
-                'initiative_code':  initiative.code,
-                'initiative_title': initiative.title,
-                'initiative_id':    str(initiative.id),
-                'entity':           initiative.entity,
-            })
+    if action_filter:
+        query = query.filter(action=action_filter)
+    if dt_from:
+        query = query.filter(timestamp__gte=dt_from)
+    if dt_to:
+        query = query.filter(timestamp__lte=dt_to)
 
-    entries.sort(key=lambda x: x['timestamp'], reverse=True)
-    total = len(entries)
-    entries = entries[:200]  # Limitar a 200 entradas más recientes
+    total = query.count()
+    entries = []
+    for event in query.order_by('-timestamp')[:200]:
+        details = event.details or ''
+        if event.ip_address:
+            details = f'{details} IP: {event.ip_address}'.strip()
+        entries.append({
+            'timestamp': event.timestamp,
+            'user': event.actor or event.user,
+            'action': event.action,
+            'details': details,
+            'object_type': event.target_type or 'Evento',
+            'object_id': event.target_id or '',
+            'entity': event.entity,
+            'user_agent': event.user_agent or '',
+        })
 
     all_entities = Entity.objects.order_by('name')
 

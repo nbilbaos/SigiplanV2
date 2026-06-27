@@ -1,12 +1,18 @@
-from mongoengine import Document, StringField, FloatField, ReferenceField, BooleanField
+from mongoengine import DENY, Document, StringField, FloatField, ReferenceField, BooleanField
 from app.models.entity import Entity
 
 class FundingSource(Document):
-    meta = {'collection': 'funding_sources'}
+    meta = {
+        'collection': 'funding_sources',
+        'indexes': [
+            ('entity', 'is_active'),
+        ],
+    }
     
-    entity = ReferenceField(Entity, required=True, reverse_delete_rule=2) # Rule 2: CASCADE (if entity is deleted)
+    # DENY: las fuentes quedan preservadas; el tenant se desactiva/soft-deletea.
+    entity = ReferenceField(Entity, required=True, reverse_delete_rule=DENY)
     name = StringField(required=True, max_length=100)
-    code = StringField(required=True)  # Código presupuestario (Ej. FNDR-2026, Municipal, Canon)
+    code = StringField(required=True, unique_with='entity')  # Código presupuestario (Ej. FNDR-2026, Municipal, Canon)
     total_budget = FloatField(default=0.0)
     allocated_budget = FloatField(default=0.0)
     is_active = BooleanField(default=True)

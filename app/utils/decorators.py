@@ -1,6 +1,7 @@
 from functools import wraps
 from flask import abort, flash, redirect, url_for
-from flask_login import current_user
+from flask_login import current_user, logout_user
+from app.utils.account import has_active_tenant
 
 def role_required(*roles):
     """
@@ -16,6 +17,15 @@ def role_required(*roles):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if not current_user.is_authenticated:
+                return redirect(url_for('auth.login'))
+
+            if not has_active_tenant(current_user):
+                logout_user()
+                flash(
+                    'La entidad asociada a tu cuenta no está activa. '
+                    'Contacta al administrador de la plataforma.',
+                    'warning',
+                )
                 return redirect(url_for('auth.login'))
             
             if current_user.role not in roles:

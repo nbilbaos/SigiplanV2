@@ -5,6 +5,7 @@ from app.models.entity import Entity, PaymentRecord
 from app.models.user import User
 from app.models.funding import FundingSource
 from app.models.initiative import Initiative, FileAttachment, AuditTrailEntry
+from app.models.log import ActivityLog
 from app import bcrypt
 
 def seed_database():
@@ -25,6 +26,7 @@ def seed_database():
     # aplicar el reverse_delete_rule (PULL) sobre planning_director/formulation_leader
     # —que son referencias simples, no listas— y falla con "$pull to a non-array value".
     print("Limpiando registros antiguos...")
+    ActivityLog.objects.delete()
     Initiative.objects.delete()
     FundingSource.objects.delete()
     User.objects.delete()
@@ -34,6 +36,7 @@ def seed_database():
     print("Creando Entidad de Demostración...")
     santiago_entity = Entity(
         name="Ilustre Municipalidad de Santiago",
+        slug="municipalidad-santiago",
         tax_id="69.070.300-K",
         address="Plaza de Armas s/n, Santiago Centro",
         subscription_plan="Enterprise",

@@ -39,9 +39,12 @@
               <tr style="border-top: 1px solid var(--color-border);" onmouseover="this.style.background='var(--color-bg-base)'" onmouseout="this.style.background=''">
 
                 <td style="padding: 16px 20px;">
-                  <div style="font-weight: 700; color: var(--color-text-dark);">{{ row.entity.name }}</div>
+                  <a href="{{ url_for('superadmin.entity_detail', entity_id=row.entity.id|string) }}" style="font-weight: 700; color: var(--color-text-dark);">{{ row.entity.name }}</a>
                   <div style="font-size: 0.78rem; color: var(--color-text-muted); margin-top: 2px;">
                     <i class="fa-solid fa-id-card" style="margin-right: 4px; opacity: 0.6;"></i>{{ row.entity.tax_id }}
+                  </div>
+                  <div style="font-size: 0.76rem; color: var(--color-text-muted); margin-top: 2px; font-family: monospace;">
+                    /t/{{ row.entity.slug or 'sin-slug' }}
                   </div>
                 </td>
 
@@ -85,9 +88,15 @@
                        style="padding: 5px 12px; font-size: 0.78rem;">
                       <i class="fa-solid fa-pen-to-square" style="margin-right: 4px;"></i> Editar
                     </a>
+                    <a href="{{ url_for('superadmin.entity_detail', entity_id=row.entity.id | string) }}"
+                       class="btn btn-secondary btn-sm"
+                       style="padding: 5px 12px; font-size: 0.78rem;">
+                      <i class="fa-solid fa-chart-line" style="margin-right: 4px;"></i> Detalle
+                    </a>
                     <form method="POST"
                           action="{{ url_for('superadmin.entity_toggle', entity_id=row.entity.id | string) }}"
                           onsubmit="return confirm('¿Confirmar {{ 'desactivar' if row.entity.is_active else 'activar' }} la entidad {{ row.entity.name }}?')">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                       <button type="submit" class="btn btn-sm"
                               style="padding: 5px 12px; font-size: 0.78rem;
                               {% if row.entity.is_active %}

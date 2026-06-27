@@ -1,8 +1,22 @@
-from datetime import datetime
-from flask import render_template, redirect, url_for, flash, request, abort
+import csv
+import io
+import re
+from datetime import datetime, timedelta
+from flask import render_template, redirect, url_for, flash, request, Response
 from flask_login import login_required, current_user
+from mongoengine import Q
 from app.blueprints.planning import planning_bp
+from app.services.exceptions import ServiceError
+from app.services.initiative import InitiativeService
 from app.utils.decorators import role_required
+from app.utils.executive import build_executive_context, next_action_for
+from app.utils.tenant import (
+    get_tenant_initiative,
+    tenant_funding_sources,
+    tenant_initiatives,
+    tenant_users,
+    visible_tenant_initiatives,
+)
 
 # Roles con acceso de lectura al módulo (la formulación tiene su propio blueprint)
 READ_ROLES = ['PLANNING_DIRECTOR', 'FORMULATION_LEADER', 'TECHNICAL_FORMULATOR']
@@ -20,44 +34,27 @@ STATUS_LABELS = {
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def _base_query(include_deleted=False):
-    """Iniciativas de la entidad del usuario, con aislamiento de tenant."""
-    from app.models.initiative import Initiative
-    q = Initiative.objects(entity=current_user.entity)
-    if not include_deleted:
-        q = q.filter(is_deleted=False)
-    return q
+    return tenant_initiatives(include_deleted=include_deleted)
 
 
 def _scoped_visible(query):
     """El Formulador Técnico solo ve las iniciativas que tiene asignadas."""
     if current_user.role == 'TECHNICAL_FORMULATOR':
-        return query.filter(assigned_formulators=current_user.id)
+        return query.filter(assigned_formulators=current_user._get_current_object())
     return query
 
 
+def _portfolio_query_for_user():
+    return visible_tenant_initiatives()
+
+
 def _get_initiative(initiative_id, include_deleted=False):
-    from app.models.initiative import Initiative
-    try:
-        init = Initiative.objects(
-            id=initiative_id, entity=current_user.entity
-        ).first()
-    except Exception:
-        init = None
-    if not init:
-        abort(404)
-    if init.is_deleted and not include_deleted:
-        abort(404)
-    if current_user.role == 'TECHNICAL_FORMULATOR' and current_user.id not in [
-        f.id for f in init.assigned_formulators if f
-    ]:
-        abort(403)
-    return init
+    return get_tenant_initiative(initiative_id, include_deleted=include_deleted)
 
 
 def _entity_team():
     """Devuelve los usuarios de la entidad agrupados por rol para los selectores."""
-    from app.models.user import User
-    users = User.objects(entity=current_user.entity, is_active=True)
+    users = tenant_users(is_active=True)
     return {
         'directors':   users.filter(role='PLANNING_DIRECTOR').order_by('first_name'),
         'leaders':     users.filter(role='FORMULATION_LEADER').order_by('first_name'),
@@ -67,9 +64,6 @@ def _entity_team():
 
 def _parse_initiative_form(form):
     """Extrae y normaliza los campos del formulario de iniciativa."""
-    from app.models.user import User
-    from app.models.funding import FundingSource
-
     data = dict(
         code=form.get('code', '').strip().upper(),
         title=form.get('title', '').strip(),
@@ -107,20 +101,17 @@ def _parse_initiative_form(form):
     # Resolver referencias (siempre dentro de la entidad)
     director = leader = None
     if data['planning_director']:
-        director = User.objects(
-            id=data['planning_director'], entity=current_user.entity,
-            role='PLANNING_DIRECTOR').first()
+        director = tenant_users(
+            id=data['planning_director'], role='PLANNING_DIRECTOR').first()
     if data['formulation_leader']:
-        leader = User.objects(
-            id=data['formulation_leader'], entity=current_user.entity,
-            role='FORMULATION_LEADER').first()
+        leader = tenant_users(
+            id=data['formulation_leader'], role='FORMULATION_LEADER').first()
 
-    formulators = list(User.objects(
-        id__in=data['assigned_formulators'], entity=current_user.entity,
+    formulators = list(tenant_users(
+        id__in=data['assigned_formulators'],
         role='TECHNICAL_FORMULATOR')) if data['assigned_formulators'] else []
 
-    sources = list(FundingSource.objects(
-        id__in=data['funding_sources'], entity=current_user.entity)) \
+    sources = list(tenant_funding_sources(id__in=data['funding_sources'])) \
         if data['funding_sources'] else []
 
     resolved = dict(
@@ -138,17 +129,62 @@ def _parse_initiative_form(form):
 def initiatives():
     status_filter = request.args.get('status', '').strip()
     search        = request.args.get('q', '').strip()
+    responsible   = request.args.get('responsible', '').strip()
+    funding_id    = request.args.get('funding', '').strip()
+    due_filter    = request.args.get('due', '').strip()
+    sort          = request.args.get('sort', '-updated_at').strip()
+    post_filter = None
 
     query = _scoped_visible(_base_query())
     if status_filter in STATUS_LABELS:
         query = query.filter(status=status_filter)
     if search:
+        safe_search = re.escape(search)
         query = query.filter(__raw__={'$or': [
-            {'code':  {'$regex': search, '$options': 'i'}},
-            {'title': {'$regex': search, '$options': 'i'}},
+            {'code':  {'$regex': safe_search, '$options': 'i'}},
+            {'title': {'$regex': safe_search, '$options': 'i'}},
         ]})
+    if responsible:
+        user = tenant_users(id=responsible).first()
+        if user:
+            query = query.filter(
+                Q(planning_director=user) |
+                Q(formulation_leader=user) |
+                Q(assigned_formulators=user)
+            )
+    if funding_id:
+        source = tenant_funding_sources(id=funding_id).first()
+        if source:
+            query = query.filter(funding_sources=source)
+    today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    if due_filter == 'overdue':
+        query = query.filter(deadline__lt=today, status__nin=['APPROVED', 'ARCHIVED'])
+    elif due_filter == 'due_soon':
+        query = query.filter(deadline__gte=today, deadline__lte=today + timedelta(days=30),
+                             status__nin=['APPROVED', 'ARCHIVED'])
+    elif due_filter == 'no_deadline':
+        query = query.filter(deadline=None)
+    elif due_filter == 'no_formulators':
+        post_filter = lambda item: (
+            item.status not in ('APPROVED', 'ARCHIVED') and
+            not [f for f in item.assigned_formulators if f]
+        )
+    elif due_filter == 'no_funding':
+        post_filter = lambda item: (
+            item.status not in ('APPROVED', 'ARCHIVED') and
+            not [s for s in item.funding_sources if s]
+        )
 
-    initiatives = query.order_by('-updated_at')
+    sort_map = {
+        '-updated_at': '-updated_at',
+        'deadline': 'deadline',
+        '-estimated_cost': '-estimated_cost',
+        'status': 'status',
+        'code': 'code',
+    }
+    initiatives = query.order_by(sort_map.get(sort, '-updated_at'))
+    if post_filter:
+        initiatives = [item for item in initiatives if post_filter(item)]
 
     # Conteo por estado para los chips de filtro (sobre el universo visible)
     visible = _scoped_visible(_base_query())
@@ -161,6 +197,12 @@ def initiatives():
                            counts=counts,
                            selected_status=status_filter,
                            search=search,
+                           responsible=responsible,
+                           funding_id=funding_id,
+                           due_filter=due_filter,
+                           sort=sort,
+                           team=_entity_team(),
+                           funding_sources=_entity_funding(),
                            can_manage=current_user.role == 'PLANNING_DIRECTOR')
 
 
@@ -170,16 +212,10 @@ def initiatives():
 @login_required
 @role_required('PLANNING_DIRECTOR')
 def create_initiative():
-    from app.models.initiative import Initiative
-
     team = _entity_team()
 
     if request.method == 'POST':
         data, resolved, errors = _parse_initiative_form(request.form)
-
-        if data['code'] and Initiative.objects(
-                entity=current_user.entity, code=data['code']).first():
-            errors.append(f"Ya existe una iniciativa con el código \"{data['code']}\".")
 
         if errors:
             for e in errors:
@@ -189,20 +225,27 @@ def create_initiative():
                                    funding_sources=_entity_funding(),
                                    initiative=None)
 
-        init = Initiative(
-            entity=current_user.entity,
-            code=data['code'], title=data['title'], description=data['description'],
-            planning_director=resolved['director'] or current_user._get_current_object(),
-            formulation_leader=resolved['leader'],
-            assigned_formulators=resolved['formulators'],
-            funding_sources=resolved['sources'],
-            estimated_cost=resolved['cost'],
-            deadline=resolved['deadline'],
-            status='DRAFT',
-        )
-        init.save()
-        init.log_action(current_user, 'CREATE',
-                        f"Iniciativa \"{init.title}\" creada en estado Borrador.")
+        try:
+            init = InitiativeService.create(
+                entity=current_user.entity,
+                actor=current_user,
+                code=data['code'],
+                title=data['title'],
+                description=data['description'],
+                planning_director=resolved['director'],
+                formulation_leader=resolved['leader'],
+                assigned_formulators=resolved['formulators'],
+                funding_sources=resolved['sources'],
+                estimated_cost=resolved['cost'],
+                deadline=resolved['deadline'],
+            )
+        except ServiceError as exc:
+            flash(str(exc), 'danger')
+            return render_template('planning/initiative_form.html',
+                                   action='create', data=data, team=team,
+                                   funding_sources=_entity_funding(),
+                                   initiative=None)
+
         flash(f'Iniciativa "{init.code}" creada exitosamente.', 'success')
         return redirect(url_for('planning.initiative_detail', initiative_id=init.id))
 
@@ -214,11 +257,8 @@ def create_initiative():
                            action='create', data=data, team=team,
                            funding_sources=_entity_funding(), initiative=None)
 
-
 def _entity_funding():
-    from app.models.funding import FundingSource
-    return FundingSource.objects(
-        entity=current_user.entity, is_active=True).order_by('name')
+    return tenant_funding_sources(is_active=True).order_by('name')
 
 
 # ─── Detalle de Iniciativa ────────────────────────────────────────────────────
@@ -230,9 +270,11 @@ def initiative_detail(initiative_id):
     init = _get_initiative(initiative_id)
     # Bitácora en orden cronológico inverso
     trail = sorted(init.audit_trail, key=lambda e: e.timestamp, reverse=True)
+    next_action = next_action_for(init, current_user.role)
     return render_template('planning/initiative_detail.html',
                            init=init, trail=trail,
                            status_labels=STATUS_LABELS,
+                           next_action=next_action,
                            can_manage=current_user.role == 'PLANNING_DIRECTOR')
 
 
@@ -242,22 +284,15 @@ def initiative_detail(initiative_id):
 @login_required
 @role_required('PLANNING_DIRECTOR')
 def initiative_edit(initiative_id):
-    from app.models.initiative import Initiative
-
     init = _get_initiative(initiative_id)
-    if init.status not in ('DRAFT', 'IN_PROGRESS', 'REJECTED'):
-        flash('Solo se pueden editar iniciativas en Borrador, En Formulación o Devueltas.', 'warning')
+    if init.status not in InitiativeService.EDITABLE_STATUSES:
+        flash('Solo se pueden editar iniciativas en Borrador, En Formulacion o Devueltas.', 'warning')
         return redirect(url_for('planning.initiative_detail', initiative_id=init.id))
 
     team = _entity_team()
 
     if request.method == 'POST':
         data, resolved, errors = _parse_initiative_form(request.form)
-
-        if data['code'] and Initiative.objects(
-                entity=current_user.entity, code=data['code'],
-                id__ne=init.id).first():
-            errors.append(f"Ya existe otra iniciativa con el código \"{data['code']}\".")
 
         if errors:
             for e in errors:
@@ -267,18 +302,27 @@ def initiative_edit(initiative_id):
                                    funding_sources=_entity_funding(),
                                    initiative=init)
 
-        init.code        = data['code']
-        init.title       = data['title']
-        init.description = data['description']
-        init.planning_director   = resolved['director']
-        init.formulation_leader  = resolved['leader']
-        init.assigned_formulators = resolved['formulators']
-        init.funding_sources     = resolved['sources']
-        init.estimated_cost      = resolved['cost']
-        init.deadline            = resolved['deadline']
-        init.save()
-        init.log_action(current_user, 'UPDATE',
-                        'Datos de la iniciativa actualizados.')
+        try:
+            InitiativeService.update_details(
+                init,
+                actor=current_user,
+                code=data['code'],
+                title=data['title'],
+                description=data['description'],
+                planning_director=resolved['director'],
+                formulation_leader=resolved['leader'],
+                assigned_formulators=resolved['formulators'],
+                funding_sources=resolved['sources'],
+                estimated_cost=resolved['cost'],
+                deadline=resolved['deadline'],
+            )
+        except ServiceError as exc:
+            flash(str(exc), 'danger')
+            return render_template('planning/initiative_form.html',
+                                   action='edit', data=data, team=team,
+                                   funding_sources=_entity_funding(),
+                                   initiative=init)
+
         flash('Iniciativa actualizada correctamente.', 'success')
         return redirect(url_for('planning.initiative_detail', initiative_id=init.id))
 
@@ -295,7 +339,6 @@ def initiative_edit(initiative_id):
                            action='edit', data=data, team=team,
                            funding_sources=_entity_funding(), initiative=init)
 
-
 # ─── Transiciones de Estado ───────────────────────────────────────────────────
 
 @planning_bp.route('/initiative/<initiative_id>/activate', methods=['POST'])
@@ -303,14 +346,18 @@ def initiative_edit(initiative_id):
 @role_required('PLANNING_DIRECTOR')
 def initiative_activate(initiative_id):
     init = _get_initiative(initiative_id)
-    if init.status != 'DRAFT':
+    try:
+        InitiativeService.transition_status(
+            init,
+            actor=current_user,
+            target_status='IN_PROGRESS',
+            action='UPDATE',
+            details='Iniciativa activada: pasa a formulacion tecnica.',
+            allowed_from=('DRAFT',),
+        )
+        flash('Iniciativa activada. Ahora esta en formulacion.', 'success')
+    except ServiceError:
         flash('Solo se puede activar una iniciativa en Borrador.', 'warning')
-    else:
-        init.status = 'IN_PROGRESS'
-        init.save()
-        init.log_action(current_user, 'UPDATE',
-                        'Iniciativa activada: pasa a formulación técnica.')
-        flash('Iniciativa activada. Ahora está en formulación.', 'success')
     return redirect(url_for('planning.initiative_detail', initiative_id=init.id))
 
 
@@ -319,14 +366,19 @@ def initiative_activate(initiative_id):
 @role_required('PLANNING_DIRECTOR')
 def initiative_approve(initiative_id):
     init = _get_initiative(initiative_id)
-    if init.status != 'UNDER_REVIEW':
-        flash('Solo se pueden aprobar iniciativas que están En Revisión.', 'warning')
-        return redirect(url_for('planning.initiative_detail', initiative_id=init.id))
     comment = request.form.get('comment', '').strip()
-    init.status = 'APPROVED'
-    init.save()
-    init.log_action(current_user, 'APPROVE',
-                    comment or 'Iniciativa aprobada por el Director de Planificación.')
+    try:
+        InitiativeService.transition_status(
+            init,
+            actor=current_user,
+            target_status='APPROVED',
+            action='APPROVE',
+            details=comment or 'Iniciativa aprobada por el Director de Planificacion.',
+            allowed_from=('UNDER_REVIEW',),
+        )
+    except ServiceError:
+        flash('Solo se pueden aprobar iniciativas que estan En Revision.', 'warning')
+        return redirect(url_for('planning.initiative_detail', initiative_id=init.id))
     flash(f'Iniciativa "{init.code}" aprobada.', 'success')
     return redirect(url_for('planning.initiative_detail', initiative_id=init.id))
 
@@ -336,16 +388,22 @@ def initiative_approve(initiative_id):
 @role_required('PLANNING_DIRECTOR')
 def initiative_reject(initiative_id):
     init = _get_initiative(initiative_id)
-    if init.status != 'UNDER_REVIEW':
-        flash('Solo se pueden rechazar iniciativas que están En Revisión.', 'warning')
-        return redirect(url_for('planning.initiative_detail', initiative_id=init.id))
     comment = request.form.get('comment', '').strip()
     if not comment:
         flash('Debes indicar las observaciones del rechazo.', 'danger')
         return redirect(url_for('planning.initiative_detail', initiative_id=init.id))
-    init.status = 'REJECTED'
-    init.save()
-    init.log_action(current_user, 'REJECT', comment)
+    try:
+        InitiativeService.transition_status(
+            init,
+            actor=current_user,
+            target_status='REJECTED',
+            action='REJECT',
+            details=comment,
+            allowed_from=('UNDER_REVIEW',),
+        )
+    except ServiceError:
+        flash('Solo se pueden rechazar iniciativas que estan En Revision.', 'warning')
+        return redirect(url_for('planning.initiative_detail', initiative_id=init.id))
     flash(f'Iniciativa "{init.code}" devuelta con observaciones.', 'warning')
     return redirect(url_for('planning.initiative_detail', initiative_id=init.id))
 
@@ -355,15 +413,20 @@ def initiative_reject(initiative_id):
 @role_required('PLANNING_DIRECTOR')
 def initiative_archive(initiative_id):
     init = _get_initiative(initiative_id)
-    if init.status != 'APPROVED':
+    try:
+        InitiativeService.transition_status(
+            init,
+            actor=current_user,
+            target_status='ARCHIVED',
+            action='UPDATE',
+            details='Iniciativa archivada.',
+            allowed_from=('APPROVED',),
+        )
+    except ServiceError:
         flash('Solo se pueden archivar iniciativas Aprobadas.', 'warning')
         return redirect(url_for('planning.initiative_detail', initiative_id=init.id))
-    init.status = 'ARCHIVED'
-    init.save()
-    init.log_action(current_user, 'UPDATE', 'Iniciativa archivada.')
     flash(f'Iniciativa "{init.code}" archivada.', 'success')
     return redirect(url_for('planning.initiative_detail', initiative_id=init.id))
-
 
 # ─── Borrado Lógico / Restauración ────────────────────────────────────────────
 
@@ -372,12 +435,9 @@ def initiative_archive(initiative_id):
 @role_required('PLANNING_DIRECTOR')
 def initiative_delete(initiative_id):
     init = _get_initiative(initiative_id)
-    init.is_deleted = True
-    init.save()
-    init.log_action(current_user, 'SOFT_DELETE', 'Iniciativa enviada a la papelera.')
+    InitiativeService.soft_delete(init, actor=current_user)
     flash(f'Iniciativa "{init.code}" movida a la papelera.', 'success')
     return redirect(url_for('planning.initiatives'))
-
 
 @planning_bp.route('/trash')
 @login_required
@@ -394,12 +454,9 @@ def trash():
 @role_required('PLANNING_DIRECTOR')
 def initiative_restore(initiative_id):
     init = _get_initiative(initiative_id, include_deleted=True)
-    init.is_deleted = False
-    init.save()
-    init.log_action(current_user, 'RESTORE', 'Iniciativa restaurada desde la papelera.')
+    InitiativeService.restore(init, actor=current_user)
     flash(f'Iniciativa "{init.code}" restaurada.', 'success')
     return redirect(url_for('planning.initiative_detail', initiative_id=init.id))
-
 
 # ─── Fuentes de Financiamiento (vista del Director) ───────────────────────────
 
@@ -407,17 +464,12 @@ def initiative_restore(initiative_id):
 @login_required
 @role_required('PLANNING_DIRECTOR')
 def funding():
-    from app.models.funding import FundingSource
-    from app.models.initiative import Initiative
-
-    sources = FundingSource.objects(entity=current_user.entity).order_by('name')
+    sources = tenant_funding_sources().order_by('name')
 
     # Para cada fuente, cuántas iniciativas activas la usan
     usage = {}
     for s in sources:
-        usage[str(s.id)] = Initiative.objects(
-            entity=current_user.entity, is_deleted=False,
-            funding_sources=s.id).count()
+        usage[str(s.id)] = tenant_initiatives(funding_sources=s).count()
 
     total_budget    = sum(s.total_budget for s in sources if s.is_active)
     total_allocated = sum(s.allocated_budget for s in sources if s.is_active)
@@ -434,9 +486,7 @@ def funding():
 @login_required
 @role_required('PLANNING_DIRECTOR')
 def org_chart():
-    from app.models.user import User
-
-    users = User.objects(entity=current_user.entity)
+    users = tenant_users()
     by_role = {
         'ENTITY_ADMIN':        list(users.filter(role='ENTITY_ADMIN').order_by('first_name')),
         'PLANNING_DIRECTOR':   list(users.filter(role='PLANNING_DIRECTOR').order_by('first_name')),
@@ -444,3 +494,48 @@ def org_chart():
         'TECHNICAL_FORMULATOR': list(users.filter(role='TECHNICAL_FORMULATOR').order_by('first_name')),
     }
     return render_template('planning/org_chart.html', by_role=by_role)
+
+
+@planning_bp.route('/portfolio/export.csv')
+@login_required
+@role_required('ENTITY_ADMIN', 'PLANNING_DIRECTOR')
+def portfolio_export_csv():
+    initiatives = _portfolio_query_for_user().order_by('-updated_at')
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        'Código', 'Título', 'Estado', 'Costo estimado CLP', 'Plazo',
+        'Director', 'Coordinador', 'Formuladores', 'Fuentes', 'Última actualización'
+    ])
+    for init in initiatives:
+        writer.writerow([
+            init.code,
+            init.title,
+            init.get_status_display(),
+            f'{init.estimated_cost or 0:.0f}',
+            init.deadline.strftime('%d/%m/%Y') if init.deadline else '',
+            init.planning_director.full_name if init.planning_director else '',
+            init.formulation_leader.full_name if init.formulation_leader else '',
+            ', '.join(f.full_name for f in init.assigned_formulators if f),
+            ', '.join(s.code for s in init.funding_sources if s),
+            init.updated_at.strftime('%d/%m/%Y %H:%M') if init.updated_at else '',
+        ])
+    csv_data = '\ufeff' + output.getvalue()
+    filename = f"cartera_sigiplan_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+    return Response(
+        csv_data,
+        mimetype='text/csv; charset=utf-8',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+    )
+
+
+@planning_bp.route('/report/executive')
+@login_required
+@role_required('ENTITY_ADMIN', 'PLANNING_DIRECTOR')
+def executive_report():
+    metrics = build_executive_context(current_user)
+    return render_template(
+        'planning/executive_report.html',
+        metrics=metrics,
+        generated_at=datetime.utcnow(),
+    )

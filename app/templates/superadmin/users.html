@@ -143,6 +143,7 @@
                     <form method="POST"
                           action="{{ url_for('superadmin.user_toggle', user_id=user.id | string) }}"
                           onsubmit="return confirm('¿Confirmar {{ 'desactivar' if user.is_active else 'activar' }} a {{ user.full_name }}?')">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                       <button type="submit" class="btn btn-sm"
                               style="padding: 5px 12px; font-size: 0.78rem;
                               {% if user.is_active %}background:rgba(176,92,74,0.1);color:var(--color-danger);border:1px solid rgba(176,92,74,0.2);

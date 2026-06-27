@@ -1,102 +1,101 @@
 {% extends "base.html" %}
 
-{% block title %}SIGIPLAN — Gestión Estratégica de Inversión Pública{% endblock %}
+{% block title %}SIGIPLAN — Control ejecutivo de inversión pública{% endblock %}
 
 {% block content %}
 <main>
-  <!-- Hero Section -->
-  <section class="hero-section container">
-    <div>
-      <h1 style="font-size: 3rem; color: var(--color-text-dark); line-height: 1.12; margin-bottom: 20px;">
-        Control estratégico de la <span style="color: var(--color-primary);">inversión pública</span>
-      </h1>
-      <p class="hero-subtitle">
-        "Conectando la planificación estratégica del Estado con la formulación técnica, de manera clara, trazable y humana."
-      </p>
-      <p style="color: var(--color-text-muted); font-size: 1.1rem; margin-bottom: 32px; max-width: 500px;">
-        SIGIPLAN permite a gobiernos locales, ministerios y agencias públicas formular iniciativas de inversión bajo un robusto control de roles, trazabilidad inmutable y paneles interactivos.
-      </p>
-      <div class="hero-actions">
-        <a href="{{ url_for('auth.login') }}" class="btn btn-primary">Comenzar Ahora</a>
-        <a href="#features" class="btn btn-secondary">Saber Más</a>
+  <section class="landing-hero-premium">
+    <div class="container" style="display:grid;grid-template-columns:minmax(0,1.05fr) minmax(360px,0.95fr);gap:54px;align-items:center;">
+      <div>
+        <div class="section-eyebrow">GovTech para inversión pública</div>
+        <h1 style="font-size:clamp(2.4rem,5vw,4.5rem);line-height:0.98;margin:14px 0 22px;">
+          Control de cartera pública con trazabilidad de punta a punta.
+        </h1>
+        <p style="color:var(--color-text-muted);font-size:1.14rem;max-width:620px;margin-bottom:28px;">
+          SIGIPLAN ayuda a municipios, servicios y equipos técnicos a convertir formulación, financiamiento y auditoría en evidencia clara para decidir mejor.
+        </p>
+        <div class="hero-actions" style="flex-wrap:wrap;">
+          <a href="{{ url_for('auth.login') }}" class="btn btn-primary">Ingresar a la plataforma</a>
+          <a href="#control" class="btn btn-secondary">Ver propuesta de valor</a>
+        </div>
       </div>
-    </div>
-    <div class="hero-image-wrapper">
-      <!-- Illustrative organic CSS card depicting an initiative pipeline node map -->
-      <div style="background-color: var(--color-bg-input); padding: 40px; border-radius: 12px; height: 350px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--color-border);">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <h4 style="font-family: var(--font-headlines); color: var(--color-primary);">🌱 Proyecto: Sigiplan Corp</h4>
-          <span class="badge badge-progress">En Formulación</span>
-        </div>
-        
-        <div style="margin: 20px 0; border-left: 3px solid var(--color-primary); padding-left: 16px;">
-          <p style="font-size: 0.9rem; color: var(--color-text-muted); font-style: italic;">
-            "Construcción y habilitación del nuevo centro de salud familiar para la comuna."
-          </p>
-          <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
-            <span style="font-size: 0.75rem; background: var(--color-bg-card); padding: 4px 8px; border-radius: 4px; font-weight: 700; color: var(--color-tertiary);">FNDR-2026</span>
-            <span style="font-size: 0.75rem; background: var(--color-bg-card); padding: 4px 8px; border-radius: 4px; font-weight: 700; color: var(--color-text-muted);">MUNICIPAL</span>
-          </div>
-        </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--color-bg-card); padding: 12px; border-radius: 8px;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--color-primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700;">N</div>
-            <div style="font-size: 0.8rem; font-weight: 700;">Nemesio Bilbao (Coordinador)</div>
+      <div class="dashboard-preview">
+        <div class="action-panel is-dark" style="box-shadow:none;">
+          <div class="panel-label">Sala de control ejecutivo</div>
+          <h3 style="margin-top:8px;">Cartera municipal 2026</h3>
+          <p style="margin-top:8px;">Riesgos, montos, plazos y auditoría visibles en una sola pantalla.</p>
+          <div class="status-strip" style="grid-template-columns:repeat(3,1fr);">
+            <div class="status-cell"><strong>42</strong><span>Iniciativas</span></div>
+            <div class="status-cell"><strong>8</strong><span>En revisión</span></div>
+            <div class="status-cell"><strong>3</strong><span>Riesgo alto</span></div>
           </div>
-          <span style="font-size: 0.8rem; font-weight: 700; color: var(--color-primary);">$340,000,000</span>
+        </div>
+        <div class="risk-grid" style="margin-top:14px;">
+          <div class="risk-banner danger"><i class="fa-solid fa-calendar-xmark"></i><span><span class="risk-value">2</span><span class="risk-label">Vencidas</span></span></div>
+          <div class="risk-banner warning"><i class="fa-solid fa-user-slash"></i><span><span class="risk-value">5</span><span class="risk-label">Sin responsable</span></span></div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Features Section -->
-  <section id="features" class="features-section">
+  <section id="control" class="features-section">
     <div class="container">
-      <div class="section-title-wrapper">
-        <h2 style="color: var(--color-primary);">Funcionalidades Diseñadas para Gobiernos Modernos</h2>
-        <p style="color: var(--color-text-muted);">Todo lo necesario para asegurar la transparencia, el orden y la eficiencia técnica en la asignación del gasto público.</p>
+      <div class="section-header">
+        <div>
+          <div class="section-eyebrow">Valor para el decisor</div>
+          <h2 class="section-title">De la carpeta técnica a una decisión defendible</h2>
+          <p class="section-subtitle">La plataforma combina gestión operativa con señal ejecutiva: qué avanza, qué se atasca y quién debe actuar.</p>
+        </div>
       </div>
-
       <div class="features-grid">
-        <!-- Feature 1 -->
         <div class="card">
-          <div class="card-icon"><i class="fa-solid fa-users-gear"></i></div>
-          <h3 class="card-title">Seguridad Basada en Roles (RBAC)</h3>
-          <p class="card-text">
-            Desde el Director de Planificación que establece plazos y metas, hasta el Formulador Analista que documenta especificaciones, cada rol tiene una vista diseñada para su trabajo.
-          </p>
+          <div class="card-icon"><i class="fa-solid fa-chart-simple"></i></div>
+          <h3 class="card-title">Control de cartera pública</h3>
+          <p class="card-text">Iniciativas por estado, monto, plazo y riesgo, listas para comité, reunión directiva o seguimiento municipal.</p>
         </div>
-
-        <!-- Feature 2 -->
         <div class="card">
-          <div class="card-icon"><i class="fa-solid fa-history"></i></div>
-          <h3 class="card-title">Auditoría y Trazabilidad</h3>
-          <p class="card-text">
-            Cada cambio presupuestario, adjunto subido o cambio en el estado de formulación es sellado y registrado de forma inmutable para cumplir con los estándares de contraloría.
-          </p>
+          <div class="card-icon"><i class="fa-solid fa-scroll"></i></div>
+          <h3 class="card-title">Trazabilidad auditada</h3>
+          <p class="card-text">Cada transición, observación y adjunto queda registrado para sostener continuidad institucional.</p>
         </div>
-
-        <!-- Feature 3 -->
         <div class="card">
-          <div class="card-icon"><i class="fa-solid fa-sitemap"></i></div>
-          <h3 class="card-title">Organigrama y Flujos de Avance</h3>
-          <p class="card-text">
-            Monitorea el progreso de toda tu institución a través de una red de proyectos interactiva que conecta presupuestos, coordinadores y plazos de entrega en tiempo real.
-          </p>
+          <div class="card-icon"><i class="fa-solid fa-people-arrows"></i></div>
+          <h3 class="card-title">Formulación colaborativa</h3>
+          <p class="card-text">Roles claros para director, coordinador y formuladores, con flujo de revisión y devolución.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon"><i class="fa-solid fa-sack-dollar"></i></div>
+          <h3 class="card-title">Financiamiento visible</h3>
+          <p class="card-text">Fuentes, presupuesto disponible y uso institucional expuestos con lenguaje ejecutivo.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- CTA Section -->
-  <section class="container" style="padding: 80px 0; text-align: center;">
-    <div style="background-color: var(--color-bg-card); padding: 48px; border-radius: 20px; border: 1px solid var(--color-border); box-shadow: var(--shadow-soft);">
-      <h2 style="font-size: 2.25rem; color: var(--color-primary); margin-bottom: 16px;">¿Listo para digitalizar tu entidad?</h2>
-      <p style="color: var(--color-text-muted); max-width: 600px; margin: 0 auto 32px auto; font-size: 1.1rem;">
-        Únete a las instituciones públicas que ya planifican su desarrollo local de forma transparente, estructurada y en un entorno visualmente reconfortante.
+  <section class="container" style="padding:76px 0;">
+    <div class="section-header">
+      <div>
+        <div class="section-eyebrow">Una plataforma, varios perfiles</div>
+        <h2 class="section-title">Cada rol ve lo que necesita decidir</h2>
+      </div>
+    </div>
+    <div class="persona-grid">
+      <div class="action-panel"><div class="panel-label">Alcalde / directivo</div><h3>Visión ejecutiva</h3><p style="color:var(--color-text-muted);">Cartera, riesgos y presupuesto para priorizar inversión.</p></div>
+      <div class="action-panel"><div class="panel-label">Director de planificación</div><h3>Gobierno de cartera</h3><p style="color:var(--color-text-muted);">Aprueba, devuelve, archiva y mantiene trazabilidad.</p></div>
+      <div class="action-panel"><div class="panel-label">Coordinador técnico</div><h3>Gestión de formulación</h3><p style="color:var(--color-text-muted);">Asigna formuladores y empuja iniciativas a revisión.</p></div>
+      <div class="action-panel"><div class="panel-label">Administrador SaaS</div><h3>Multi-entidad</h3><p style="color:var(--color-text-muted);">Administra entidades, usuarios, planes y actividad global.</p></div>
+    </div>
+  </section>
+
+  <section class="container" style="padding:0 0 84px;">
+    <div class="action-panel is-dark" style="padding:42px;text-align:center;">
+      <div class="panel-label">Confianza institucional</div>
+      <h2 style="font-size:2.25rem;margin-top:10px;">Seguridad, auditoría y despliegue independiente</h2>
+      <p style="max-width:720px;margin:14px auto 26px;color:var(--sidebar-fg-muted);">
+        SIGIPLAN está preparado para operar por entidad, con roles, HTTPS, cookies seguras, adjuntos autenticados y bitácora por iniciativa.
       </p>
-      <a href="{{ url_for('auth.login') }}" class="btn btn-primary">Iniciar Sesión en tu Institución</a>
+      <a href="{{ url_for('auth.login') }}" class="btn btn-primary">Entrar a SIGIPLAN</a>
     </div>
   </section>
 </main>

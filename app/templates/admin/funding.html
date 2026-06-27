@@ -89,6 +89,7 @@
                     </a>
                     <form method="POST" action="{{ url_for('admin.funding_toggle', source_id=source.id|string) }}"
                           onsubmit="return confirm('¿{{ 'Desactivar' if source.is_active else 'Activar' }} la fuente {{ source.code }}?')">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                       <button type="submit" class="btn btn-sm" style="padding:5px 12px;font-size:0.78rem;
                         {% if source.is_active %}background:rgba(176,92,74,0.1);color:var(--color-danger);border:1px solid rgba(176,92,74,0.2);
                         {% else %}background:var(--color-primary-light);color:var(--color-primary);border:1px solid rgba(74,124,89,0.2);{% endif %}">

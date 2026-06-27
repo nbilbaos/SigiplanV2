@@ -1,4 +1,5 @@
 import os
+import posixpath
 import uuid
 from flask import (
     render_template, redirect, url_for, flash, request, abort,
@@ -7,7 +8,14 @@ from flask import (
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from app.blueprints.formulation import formulation_bp
+from app.services.exceptions import ServiceError
+from app.services.initiative import InitiativeService
 from app.utils.decorators import role_required
+from app.utils.tenant import (
+    get_tenant_initiative,
+    tenant_users,
+    visible_tenant_initiatives,
+)
 
 # Roles que trabajan en la formulación técnica
 WORK_ROLES = ['FORMULATION_LEADER', 'TECHNICAL_FORMULATOR']
@@ -34,34 +42,58 @@ STATUS_LABELS = {
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def _visible_query():
-    """El Coordinador ve todas las iniciativas de la entidad; el Formulador, solo las asignadas."""
-    from app.models.initiative import Initiative
-    base = Initiative.objects(entity=current_user.entity, is_deleted=False)
-    if current_user.role == 'TECHNICAL_FORMULATOR':
-        base = base.filter(assigned_formulators=current_user.id)
-    return base
+    return visible_tenant_initiatives()
 
 
 def _get_initiative(initiative_id):
-    from app.models.initiative import Initiative
-    try:
-        init = Initiative.objects(
-            id=initiative_id, entity=current_user.entity, is_deleted=False
-        ).first()
-    except Exception:
-        init = None
-    if not init:
-        abort(404)
-    if current_user.role == 'TECHNICAL_FORMULATOR' and current_user.id not in [
-        f.id for f in init.assigned_formulators if f
-    ]:
-        abort(403)
-    return init
+    return get_tenant_initiative(initiative_id)
 
 
 def _allowed_file(filename):
     return '.' in filename and \
         filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def _attachment_directory(init):
+    return os.path.join(
+        current_app.config['UPLOAD_FOLDER'],
+        str(init.entity.id),
+        str(init.id),
+    )
+
+
+def _attachment_path(init, filename):
+    return posixpath.join(str(init.entity.id), str(init.id), filename)
+
+
+def _legacy_attachment_path(filename):
+    return filename and '/' not in filename and '\\' not in filename
+
+
+def _stored_attachment_path(init, att):
+    stored = (att.file_path or '').replace('\\', '/')
+    parts = stored.split('/')
+    if any(part in ('', '.', '..') for part in parts):
+        abort(404)
+    normalized = posixpath.normpath(stored)
+    if not normalized or normalized.startswith('../') or normalized.startswith('/'):
+        abort(404)
+    if _legacy_attachment_path(normalized):
+        return normalized
+
+    parts = normalized.split('/')
+    if len(parts) < 3 or parts[0] != str(init.entity.id) or parts[1] != str(init.id):
+        abort(404)
+    return normalized
+
+
+def _stored_attachment_full_path(init, att):
+    stored = _stored_attachment_path(init, att)
+    full_path = os.path.abspath(os.path.join(current_app.config['UPLOAD_FOLDER'], stored))
+    upload_root = os.path.abspath(current_app.config['UPLOAD_FOLDER'])
+    if os.path.commonpath([upload_root, full_path]) != upload_root:
+        abort(404)
+    return full_path
 
 
 def _last_rejection(init):
@@ -105,17 +137,16 @@ def index():
 @login_required
 @role_required(*WORK_ROLES)
 def initiative_work(initiative_id):
-    from app.models.user import User
-
     init = _get_initiative(initiative_id)
     rejection = _last_rejection(init)
 
     # Solo el coordinador puede asignar formuladores
     formulators = []
     if current_user.role == 'FORMULATION_LEADER':
-        formulators = User.objects(
-            entity=current_user.entity, role='TECHNICAL_FORMULATOR',
-            is_active=True).order_by('first_name')
+        formulators = tenant_users(
+            role='TECHNICAL_FORMULATOR',
+            is_active=True,
+        ).order_by('first_name')
 
     assigned_ids = [str(f.id) for f in init.assigned_formulators if f]
 
@@ -162,11 +193,17 @@ def edit_technical(initiative_id):
             flash(e, 'danger')
         return redirect(url_for('formulation.initiative_work', initiative_id=init.id))
 
-    init.title = title
-    init.description = description
-    init.estimated_cost = cost
-    init.save()
-    init.log_action(current_user, 'UPDATE', 'Ficha técnica actualizada.')
+    try:
+        InitiativeService.update_technical(
+            init,
+            actor=current_user,
+            title=title,
+            description=description,
+            estimated_cost=cost,
+        )
+    except ServiceError as exc:
+        flash(str(exc), 'warning')
+        return redirect(url_for('formulation.initiative_work', initiative_id=init.id))
     flash('Ficha técnica actualizada correctamente.', 'success')
     return redirect(url_for('formulation.initiative_work', initiative_id=init.id))
 
@@ -197,7 +234,7 @@ def upload(initiative_id):
     file_id  = uuid.uuid4().hex
     stored   = f'{file_id}_{original}'
 
-    upload_dir = current_app.config['UPLOAD_FOLDER']
+    upload_dir = _attachment_directory(init)
     os.makedirs(upload_dir, exist_ok=True)
     full_path = os.path.join(upload_dir, stored)
     file.save(full_path)
@@ -205,7 +242,7 @@ def upload(initiative_id):
     attachment = FileAttachment(
         file_id=file_id,
         name=original,
-        file_path=stored,
+        file_path=_attachment_path(init, stored),
         size_bytes=os.path.getsize(full_path),
         uploaded_by=current_user._get_current_object(),
     )
@@ -225,7 +262,8 @@ def download(initiative_id, file_id):
     if not att:
         abort(404)
     return send_from_directory(
-        current_app.config['UPLOAD_FOLDER'], att.file_path,
+        current_app.config['UPLOAD_FOLDER'],
+        _stored_attachment_path(init, att),
         as_attachment=True, download_name=att.name)
 
 
@@ -244,7 +282,7 @@ def attachment_delete(initiative_id, file_id):
 
     # Borrar el archivo físico (si existe)
     try:
-        full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], att.file_path)
+        full_path = _stored_attachment_full_path(init, att)
         if os.path.exists(full_path):
             os.remove(full_path)
     except OSError:
@@ -263,18 +301,14 @@ def attachment_delete(initiative_id, file_id):
 @login_required
 @role_required('FORMULATION_LEADER')
 def assign_formulators(initiative_id):
-    from app.models.user import User
-
     init = _get_initiative(initiative_id)
     selected = request.form.getlist('formulators')
-    users = list(User.objects(
-        id__in=selected, entity=current_user.entity,
-        role='TECHNICAL_FORMULATOR')) if selected else []
+    users = list(tenant_users(
+        id__in=selected,
+        role='TECHNICAL_FORMULATOR',
+    )) if selected else []
 
-    init.assigned_formulators = users
-    init.save()
-    names = ', '.join(u.full_name for u in users) if users else 'ninguno'
-    init.log_action(current_user, 'UPDATE', f'Formuladores asignados: {names}.')
+    InitiativeService.assign_formulators(init, actor=current_user, users=users)
     flash('Asignación de formuladores actualizada.', 'success')
     return redirect(url_for('formulation.initiative_work', initiative_id=init.id))
 
@@ -289,10 +323,14 @@ def resume(initiative_id):
     if init.status != 'REJECTED':
         flash('Solo se puede retomar una iniciativa devuelta con observaciones.', 'warning')
         return redirect(url_for('formulation.initiative_work', initiative_id=init.id))
-    init.status = 'IN_PROGRESS'
-    init.save()
-    init.log_action(current_user, 'UPDATE',
-                    'Formulación retomada tras las observaciones del revisor.')
+    InitiativeService.transition_status(
+        init,
+        actor=current_user,
+        target_status='IN_PROGRESS',
+        action='UPDATE',
+        details='Formulacion retomada tras las observaciones del revisor.',
+        allowed_from=('REJECTED',),
+    )
     flash('Iniciativa retomada. Aplica las correcciones y vuelve a enviarla a revisión.', 'success')
     return redirect(url_for('formulation.initiative_work', initiative_id=init.id))
 
@@ -313,8 +351,13 @@ def submit_for_review(initiative_id):
         flash('Agrega un comentario para el revisor antes de enviar.', 'danger')
         return redirect(url_for('formulation.initiative_work', initiative_id=init.id))
 
-    init.status = 'UNDER_REVIEW'
-    init.save()
-    init.log_action(current_user, 'SUBMIT_FOR_REVIEW', comment)
+    InitiativeService.transition_status(
+        init,
+        actor=current_user,
+        target_status='UNDER_REVIEW',
+        action='SUBMIT_FOR_REVIEW',
+        details=comment,
+        allowed_from=('IN_PROGRESS',),
+    )
     flash(f'Iniciativa "{init.code}" enviada a revisión.', 'success')
     return redirect(url_for('formulation.initiative_work', initiative_id=init.id))

@@ -1,10 +1,18 @@
 from datetime import datetime
-from mongoengine import Document, StringField, EmailField, ReferenceField, BooleanField, DateTimeField
+from mongoengine import (
+    DENY, Document, StringField, EmailField, ReferenceField, BooleanField,
+    DateTimeField
+)
 from flask_login import UserMixin
 from app.models.entity import Entity
 
 class User(Document, UserMixin):
-    meta = {'collection': 'users'}
+    meta = {
+        'collection': 'users',
+        'indexes': [
+            ('entity', 'role', 'is_active'),
+        ],
+    }
     
     email = EmailField(required=True, unique=True)
     password_hash = StringField(required=True)
@@ -17,10 +25,8 @@ class User(Document, UserMixin):
         ('FORMULATION_LEADER', 'Coordinador de Formulación'),
         ('TECHNICAL_FORMULATOR', 'Formulador Técnico / Analista'),
     ), required=True)
-    # CASCADE (2): al borrar la Entity (tenant), se eliminan sus Users. NULLIFY dejaría
-    # usuarios con entity=None, que el sistema trata como SUPER_ADMIN (privilegio ambiguo).
-    # PULL (4) era inválido aquí: solo aplica a ListField, no a una referencia simple.
-    entity = ReferenceField(Entity, reverse_delete_rule=2) # None para SUPER_ADMIN
+    # DENY: los tenants se desactivan o marcan como eliminados; no se borran en cascada.
+    entity = ReferenceField(Entity, reverse_delete_rule=DENY)  # None para SUPER_ADMIN
     is_active = BooleanField(default=True)
     last_login = DateTimeField()
     created_at = DateTimeField(default=datetime.utcnow)

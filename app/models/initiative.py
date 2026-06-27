@@ -1,7 +1,8 @@
 from datetime import datetime
 from mongoengine import (
-    Document, StringField, ReferenceField, ListField, DateTimeField, 
-    BooleanField, EmbeddedDocument, EmbeddedDocumentField, FloatField, IntField
+    DENY, Document, StringField, ReferenceField, ListField, DateTimeField,
+    BooleanField, EmbeddedDocument, EmbeddedDocumentField, FloatField, IntField,
+    ValidationError
 )
 from app.models.entity import Entity
 from app.models.user import User
@@ -22,9 +23,15 @@ class AuditTrailEntry(EmbeddedDocument):
     details = StringField()
 
 class Initiative(Document):
-    meta = {'collection': 'initiatives'}
+    meta = {
+        'collection': 'initiatives',
+        'indexes': [
+            ('entity', 'is_deleted', 'status'),
+        ],
+    }
     
-    entity = ReferenceField(Entity, required=True, reverse_delete_rule=2)
+    # DENY: las iniciativas se conservan; los tenants no se eliminan en cascada.
+    entity = ReferenceField(Entity, required=True, reverse_delete_rule=DENY)
     code = StringField(required=True, unique_with='entity')  # Código único de inversión pública por entidad
     title = StringField(required=True, max_length=255)
     description = StringField(required=True)
@@ -62,12 +69,64 @@ class Initiative(Document):
     
     created_at = DateTimeField(default=datetime.utcnow)
     updated_at = DateTimeField(default=datetime.utcnow)
+
+    def _validate_user_reference(self, user, field_name, expected_role=None):
+        if not user:
+            return
+        if not user.entity or user.entity.id != self.entity.id:
+            raise ValidationError(
+                f'{field_name} debe pertenecer a la misma entidad que la iniciativa.'
+            )
+        if expected_role and user.role != expected_role:
+            raise ValidationError(
+                f'{field_name} debe tener rol {expected_role}.'
+            )
+
+    def _validate_funding_reference(self, source, field_name):
+        if not source:
+            return
+        if not source.entity or source.entity.id != self.entity.id:
+            raise ValidationError(
+                f'{field_name} debe pertenecer a la misma entidad que la iniciativa.'
+            )
+
+    def clean(self):
+        if not self.entity:
+            raise ValidationError('La iniciativa debe tener una entidad asociada.')
+
+        self._validate_user_reference(
+            self.planning_director,
+            'planning_director',
+            'PLANNING_DIRECTOR',
+        )
+        self._validate_user_reference(
+            self.formulation_leader,
+            'formulation_leader',
+            'FORMULATION_LEADER',
+        )
+        for formulator in self.assigned_formulators:
+            self._validate_user_reference(
+                formulator,
+                'assigned_formulators',
+                'TECHNICAL_FORMULATOR',
+            )
+        for source in self.funding_sources:
+            self._validate_funding_reference(source, 'funding_sources')
     
     def log_action(self, user, action, details=""):
         entry = AuditTrailEntry(user=user, action=action, details=details, timestamp=datetime.utcnow())
         self.audit_trail.append(entry)
         self.updated_at = datetime.utcnow()
         self.save()
+        from app.services.audit import log_event
+        log_event(
+            actor=user,
+            entity=self.entity,
+            action=action,
+            target=self,
+            target_type='Initiative',
+            details=details,
+        )
 
     # NOTA: get_status_display() lo genera MongoEngine automáticamente a partir de
     # las choices (valor, etiqueta) del campo `status`. No definir un método propio

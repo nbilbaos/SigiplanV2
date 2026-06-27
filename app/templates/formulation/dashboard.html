@@ -1,76 +1,54 @@
 {% extends "base.html" %}
-{% block title %}SIGIPLAN — Formulación{% endblock %}
+{% block title %}SIGIPLAN — Mesa de Formulación{% endblock %}
 {% block dashboard_title %}Mesa de Formulación{% endblock %}
 {% block dashboard_subtitle %}
-  {% if is_leader %}Coordina la formulación técnica del equipo de {{ current_user.entity.name }}.
-  {% else %}Iniciativas en las que estás trabajando.{% endif %}
+  {% if is_leader %}Seguimiento técnico de iniciativas activas de la entidad.
+  {% else %}Tus iniciativas asignadas para formular y documentar.{% endif %}
 {% endblock %}
 
 {% block dashboard_content %}
 <div class="dashboard-content">
+  <div class="metric-grid">
+    <div class="metric-card"><div class="metric-label">Total visible</div><div class="metric-value">{{ metrics.total }}</div><div class="metric-note">Iniciativas en tu alcance.</div></div>
+    <div class="metric-card"><div class="metric-label">En formulación</div><div class="metric-value">{{ metrics.in_progress }}</div><div class="metric-note">Trabajo técnico activo.</div></div>
+    <div class="metric-card"><div class="metric-label">En revisión</div><div class="metric-value">{{ metrics.under_review }}</div><div class="metric-note">Esperando decisión.</div></div>
+    <div class="metric-card"><div class="metric-label">Devueltas</div><div class="metric-value">{{ metrics.rejected }}</div><div class="metric-note">Requieren corrección.</div></div>
+  </div>
 
-  <!-- Métricas -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-bottom:28px;">
-    <div class="card" style="padding:22px;">
-      <div style="font-size:0.73rem;font-weight:700;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:8px;">Asignadas</div>
-      <div style="font-size:2.1rem;font-weight:800;color:var(--color-info);line-height:1;">{{ metrics.total }}</div>
-    </div>
-    <div class="card" style="padding:22px;">
-      <div style="font-size:0.73rem;font-weight:700;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:8px;">En Formulación</div>
-      <div style="font-size:2.1rem;font-weight:800;color:var(--color-primary);line-height:1;">{{ metrics.in_progress }}</div>
-    </div>
-    <div class="card" style="padding:22px;">
-      <div style="font-size:0.73rem;font-weight:700;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:8px;">En Revisión</div>
-      <div style="font-size:2.1rem;font-weight:800;color:var(--color-warning);line-height:1;">{{ metrics.under_review }}</div>
-    </div>
-    <div class="card" style="padding:22px;">
-      <div style="font-size:0.73rem;font-weight:700;text-transform:uppercase;color:var(--color-text-muted);letter-spacing:0.5px;margin-bottom:8px;">Devueltas</div>
-      <div style="font-size:2.1rem;font-weight:800;color:var(--color-danger);line-height:1;">{{ metrics.rejected }}</div>
+  <div class="section-header">
+    <div>
+      <div class="section-eyebrow">Flujo técnico</div>
+      <h2 class="section-title">Kanban de formulación</h2>
+      <p class="section-subtitle">Prioriza devueltas, vencidas y próximas a revisión sin perder el hilo documental.</p>
     </div>
   </div>
 
   {% if groups %}
-    {% for status, label, items in groups %}
-      <div style="margin-bottom:26px;">
-        <h3 style="font-size:0.82rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--color-text-muted);margin-bottom:12px;display:flex;align-items:center;gap:8px;">
-          <span class="badge {% if status == 'DRAFT' %}badge-draft{% elif status == 'IN_PROGRESS' %}badge-progress{% elif status == 'UNDER_REVIEW' %}badge-review{% elif status == 'APPROVED' %}badge-approved{% elif status == 'REJECTED' %}badge-rejected{% else %}badge-draft{% endif %}">{{ label }}</span>
-          <span style="color:var(--color-text-muted);font-weight:600;">{{ items|length }}</span>
-        </h3>
-
-        <div class="card" style="padding:0;overflow:hidden;">
-          <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
-            <tbody>
-              {% for init in items %}
-                <tr style="border-top:{{ '0' if loop.first else '1px solid var(--color-border)' }};" onmouseover="this.style.background='var(--color-bg-base)'" onmouseout="this.style.background=''">
-                  <td style="padding:14px 20px;">
-                    <div style="font-weight:800;color:var(--color-primary);font-size:0.8rem;">{{ init.code }}</div>
-                    <div style="font-weight:600;max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ init.title }}</div>
-                  </td>
-                  <td style="padding:14px 16px;text-align:center;font-size:0.8rem;color:var(--color-text-muted);">
-                    <i class="fa-solid fa-paperclip" style="margin-right:4px;"></i> {{ init.attachments|length }}
-                  </td>
-                  <td style="padding:14px 16px;text-align:right;font-weight:700;white-space:nowrap;">
-                    ${{ "{:,.0f}".format(init.estimated_cost or 0) }}
-                  </td>
-                  <td style="padding:14px 20px;text-align:right;">
-                    <a href="{{ url_for('formulation.initiative_work', initiative_id=init.id|string) }}" class="btn btn-secondary btn-sm" style="padding:5px 14px;font-size:0.78rem;">
-                      <i class="fa-solid fa-pen-ruler" style="margin-right:5px;"></i> Trabajar
-                    </a>
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    {% endfor %}
+    <div class="kanban-board">
+      {% for status, label, items in groups %}
+        <section class="kanban-column">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span class="status-pill status-{{ status }}">{{ label }}</span>
+            <strong>{{ items|length }}</strong>
+          </div>
+          {% for init in items %}
+            <a class="kanban-card" href="{{ url_for('formulation.initiative_work', initiative_id=init.id|string) }}">
+              <div style="font-weight:850;color:var(--color-primary);font-size:0.82rem;">{{ init.code }}</div>
+              <div style="font-weight:800;margin-top:4px;">{{ init.title }}</div>
+              <div style="display:flex;justify-content:space-between;gap:10px;margin-top:12px;color:var(--color-text-muted);font-size:0.78rem;">
+                <span><i class="fa-solid fa-paperclip"></i> {{ init.attachments|length }}</span>
+                <span>{% if init.deadline %}{{ init.deadline.strftime('%d/%m/%Y') }}{% else %}Sin plazo{% endif %}</span>
+              </div>
+              <div style="margin-top:10px;font-weight:750;">${{ "{:,.0f}".format(init.estimated_cost or 0) }}</div>
+            </a>
+          {% endfor %}
+        </section>
+      {% endfor %}
+    </div>
   {% else %}
-    <div class="card" style="padding:60px 24px;text-align:center;color:var(--color-text-muted);">
-      <i class="fa-solid fa-folder-open" style="font-size:2.5rem;opacity:0.3;display:block;margin-bottom:16px;"></i>
-      <p style="font-style:italic;">
-        {% if is_leader %}No hay iniciativas activas en la entidad.
-        {% else %}Aún no tienes iniciativas asignadas. El Coordinador de Formulación te asignará proyectos.{% endif %}
-      </p>
+    <div class="empty-state">
+      <i class="fa-solid fa-clipboard-check"></i>
+      {% if is_leader %}No hay iniciativas activas en la entidad.{% else %}Aún no tienes iniciativas asignadas.{% endif %}
     </div>
   {% endif %}
 </div>

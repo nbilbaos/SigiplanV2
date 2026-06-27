@@ -126,7 +126,7 @@
               {% for row in entities_stats %}
                 <tr style="border-top: 1px solid var(--color-border); transition: background 0.15s;" onmouseover="this.style.background='var(--color-bg-base)'" onmouseout="this.style.background=''">
                   <td style="padding: 14px 20px;">
-                    <div style="font-weight: 700; color: var(--color-text-dark);">{{ row.entity.name }}</div>
+                    <a href="{{ url_for('superadmin.entity_detail', entity_id=row.entity.id|string) }}" style="font-weight: 700; color: var(--color-text-dark);">{{ row.entity.name }}</a>
                     <div style="font-size: 0.78rem; color: var(--color-text-muted); margin-top: 2px;">{{ row.entity.tax_id }}</div>
                   </td>
                   <td style="padding: 14px 16px; text-align: center;">
@@ -179,14 +179,17 @@
           <i class="fa-solid fa-bolt" style="color: var(--color-warning); margin-right: 8px;"></i>Acciones Rápidas
         </h3>
         <div style="display: flex; flex-direction: column; gap: 10px;">
-          <a href="#" class="btn btn-primary btn-sm" style="justify-content: flex-start;">
+          <a href="{{ url_for('superadmin.entity_create') }}" class="btn btn-primary btn-sm" style="justify-content: flex-start;">
             <i class="fa-solid fa-plus" style="margin-right: 8px;"></i> Nueva Entidad
           </a>
-          <a href="#" class="btn btn-secondary btn-sm" style="justify-content: flex-start;">
+          <a href="{{ url_for('superadmin.user_create') }}" class="btn btn-secondary btn-sm" style="justify-content: flex-start;">
             <i class="fa-solid fa-user-plus" style="margin-right: 8px;"></i> Crear Administrador
           </a>
-          <a href="#" class="btn btn-secondary btn-sm" style="justify-content: flex-start;">
+          <a href="{{ url_for('superadmin.logs') }}" class="btn btn-secondary btn-sm" style="justify-content: flex-start;">
             <i class="fa-solid fa-scroll" style="margin-right: 8px;"></i> Ver Logs de Auditoría
+          </a>
+          <a href="{{ url_for('superadmin.statistics') }}" class="btn btn-secondary btn-sm" style="justify-content: flex-start;">
+            <i class="fa-solid fa-chart-pie" style="margin-right: 8px;"></i> Estadísticas
           </a>
         </div>
       </div>

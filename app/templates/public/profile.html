@@ -55,6 +55,7 @@
           <i class="fa-solid fa-id-card" style="color:var(--color-primary);"></i> Datos Personales
         </h3>
         <form method="POST" action="{{ url_for('public.profile_update') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
             <div class="form-group">
               <label class="form-label" for="first_name">Nombre</label>
@@ -88,6 +89,7 @@
           <i class="fa-solid fa-key" style="color:var(--color-primary);"></i> Cambiar Contraseña
         </h3>
         <form method="POST" action="{{ url_for('public.profile_password') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="form-group">
             <label class="form-label" for="current_password">Contraseña Actual</label>
             <input type="password" id="current_password" name="current_password" class="form-control"
