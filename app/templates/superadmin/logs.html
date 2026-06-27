@@ -2,7 +2,7 @@
 
 {% block title %}SIGIPLAN — Logs de Auditoría Global{% endblock %}
 {% block dashboard_title %}Logs de Auditoría{% endblock %}
-{% block dashboard_subtitle %}Registro cronológico de todas las acciones realizadas sobre iniciativas en la plataforma.{% endblock %}
+{% block dashboard_subtitle %}Registro cronológico de eventos relevantes de seguridad, administración y operación por tenant.{% endblock %}
 
 {% block dashboard_content %}
 
@@ -13,7 +13,20 @@
   'APPROVE':          ('Aprobación',         '#3b6347', 'rgba(59,99,71,0.12)',   'fa-circle-check'),
   'REJECT':           ('Rechazo',            '#b05c4a', 'rgba(176,92,74,0.12)',  'fa-circle-xmark'),
   'SOFT_DELETE':      ('Eliminación',        '#b05c4a', 'rgba(176,92,74,0.12)',  'fa-trash'),
-  'RESTORE':          ('Restauración',       '#4a6c7c', 'rgba(74,108,124,0.12)', 'fa-rotate-left')
+  'RESTORE':          ('Restauración',       '#4a6c7c', 'rgba(74,108,124,0.12)', 'fa-rotate-left'),
+  'ENTITY_CREATE':    ('Entidad creada',     '#4a7c59', 'rgba(74,124,89,0.12)',  'fa-building-circle-check'),
+  'ENTITY_UPDATE':    ('Entidad editada',    '#4a6c7c', 'rgba(74,108,124,0.12)', 'fa-building'),
+  'ENTITY_TOGGLE':    ('Entidad estado',     '#c2953b', 'rgba(194,149,59,0.12)', 'fa-toggle-on'),
+  'ENTITY_RESTORE':   ('Entidad restaurada', '#4a6c7c', 'rgba(74,108,124,0.12)', 'fa-rotate-left'),
+  'LOGIN':            ('Login',              '#4a7c59', 'rgba(74,124,89,0.12)',  'fa-right-to-bracket'),
+  'LOGIN_FAILED':     ('Login fallido',      '#b05c4a', 'rgba(176,92,74,0.12)',  'fa-triangle-exclamation'),
+  'LOGOUT':           ('Logout',             '#4a6c7c', 'rgba(74,108,124,0.12)', 'fa-right-from-bracket'),
+  'USER_CREATE':      ('Usuario creado',     '#4a7c59', 'rgba(74,124,89,0.12)',  'fa-user-plus'),
+  'USER_UPDATE':      ('Usuario editado',    '#4a6c7c', 'rgba(74,108,124,0.12)', 'fa-user-pen'),
+  'USER_TOGGLE':      ('Usuario estado',     '#c2953b', 'rgba(194,149,59,0.12)', 'fa-user-check'),
+  'FUNDING_SOURCE_CREATE': ('Fuente creada', '#4a7c59', 'rgba(74,124,89,0.12)',  'fa-sack-dollar'),
+  'FUNDING_SOURCE_UPDATE': ('Fuente editada','#4a6c7c', 'rgba(74,108,124,0.12)', 'fa-coins'),
+  'FUNDING_SOURCE_TOGGLE': ('Fuente estado', '#c2953b', 'rgba(194,149,59,0.12)', 'fa-toggle-on')
 } %}
 
 {% set action_labels = {
@@ -23,7 +36,20 @@
   'APPROVE':           'Aprobación',
   'REJECT':            'Rechazo',
   'SOFT_DELETE':       'Eliminación',
-  'RESTORE':           'Restauración'
+  'RESTORE':           'Restauración',
+  'ENTITY_CREATE':     'Entidad creada',
+  'ENTITY_UPDATE':     'Entidad editada',
+  'ENTITY_TOGGLE':     'Cambio estado entidad',
+  'ENTITY_RESTORE':    'Entidad restaurada',
+  'LOGIN':             'Login',
+  'LOGIN_FAILED':      'Login fallido',
+  'LOGOUT':            'Logout',
+  'USER_CREATE':       'Usuario creado',
+  'USER_UPDATE':       'Usuario editado',
+  'USER_TOGGLE':       'Cambio estado usuario',
+  'FUNDING_SOURCE_CREATE': 'Fuente creada',
+  'FUNDING_SOURCE_UPDATE': 'Fuente editada',
+  'FUNDING_SOURCE_TOGGLE': 'Cambio estado fuente'
 } %}
 
 <div class="dashboard-content">
@@ -96,7 +122,7 @@
               <th style="padding:13px 20px; text-align:left; font-size:0.72rem; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.5px; font-weight:700; white-space:nowrap;">Fecha y Hora</th>
               <th style="padding:13px 16px; text-align:left; font-size:0.72rem; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.5px; font-weight:700;">Usuario</th>
               <th style="padding:13px 16px; text-align:left; font-size:0.72rem; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.5px; font-weight:700;">Acción</th>
-              <th style="padding:13px 16px; text-align:left; font-size:0.72rem; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.5px; font-weight:700;">Iniciativa</th>
+              <th style="padding:13px 16px; text-align:left; font-size:0.72rem; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.5px; font-weight:700;">Objeto</th>
               <th style="padding:13px 16px; text-align:left; font-size:0.72rem; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.5px; font-weight:700;">Entidad</th>
               <th style="padding:13px 16px; text-align:left; font-size:0.72rem; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.5px; font-weight:700;">Detalle</th>
             </tr>
@@ -137,10 +163,10 @@
                   </span>
                 </td>
 
-                <!-- Iniciativa -->
+                <!-- Objeto -->
                 <td style="padding:13px 16px;">
-                  <div style="font-weight:700; font-size:0.85rem; color:var(--color-primary);">{{ entry.initiative_code }}</div>
-                  <div style="font-size:0.78rem; color:var(--color-text-muted); max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ entry.initiative_title }}</div>
+                  <div style="font-weight:700; font-size:0.85rem; color:var(--color-primary);">{{ entry.object_type }}</div>
+                  <div style="font-size:0.78rem; color:var(--color-text-muted); max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ entry.object_id }}</div>
                 </td>
 
                 <!-- Entidad -->

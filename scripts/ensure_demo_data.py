@@ -20,6 +20,7 @@ from app.models.user import User
 
 
 ENTITY_NAME = "Ilustre Municipalidad de Santiago"
+ENTITY_SLUG = "municipalidad-santiago"
 ENTITY_TAX_ID = "69.070.300-K"
 
 DEMO_USERS = [
@@ -36,10 +37,13 @@ def upsert_entity():
         entity = Entity(name=ENTITY_NAME, tax_id=ENTITY_TAX_ID)
 
     entity.name = ENTITY_NAME
+    entity.slug = ENTITY_SLUG
     entity.tax_id = ENTITY_TAX_ID
     entity.address = "Plaza de Armas s/n, Santiago Centro"
     entity.subscription_plan = "Enterprise"
     entity.is_active = True
+    entity.is_deleted = False
+    entity.deleted_at = None
     if not entity.payment_history:
         entity.payment_history = [
             PaymentRecord(amount=1200000.0, status="Paid", transaction_id="DEMO-2026-001"),

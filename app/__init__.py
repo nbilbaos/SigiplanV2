@@ -1,4 +1,5 @@
 import os
+from importlib import import_module
 from flask import Flask
 from flask_login import LoginManager
 from flask_bcrypt import Bcrypt
@@ -23,10 +24,19 @@ def create_app(config_name='dev'):
     
     # Inicializar base de datos MongoDB
     db_settings = app.config['MONGODB_SETTINGS']
-    connect(
-        db=db_settings['db'],
-        host=db_settings['host']
-    )
+    connect_kwargs = {
+        'db': db_settings['db'],
+        'host': db_settings['host'],
+        'uuidRepresentation': 'standard',
+    }
+    client_class_path = app.config.get('MONGODB_CLIENT_CLASS')
+    if client_class_path:
+        module_name, class_name = client_class_path.rsplit('.', 1)
+        connect_kwargs['mongo_client_class'] = getattr(
+            import_module(module_name),
+            class_name,
+        )
+    connect(**connect_kwargs)
     
     # Inicializar extensiones con la app
     login_manager.init_app(app)
@@ -71,7 +81,9 @@ def create_app(config_name='dev'):
 @login_manager.user_loader
 def load_user(user_id):
     from app.models.user import User
+    from app.utils.account import can_authenticate
     try:
-        return User.objects(id=user_id, is_active=True).first()
+        user = User.objects(id=user_id).first()
     except Exception:
         return None
+    return user if can_authenticate(user) else None

@@ -9,7 +9,7 @@
 
   <div class="section-header">
     <div>
-      <div class="section-eyebrow">Tenant gubernamental · {{ entity.tax_id }}</div>
+      <div class="section-eyebrow">Tenant gubernamental · {{ entity.tax_id }} · /t/{{ entity.slug or 'sin-slug' }}</div>
       <h2 class="section-title">{{ entity.name }}</h2>
       <p class="section-subtitle">
         {{ entity.address or 'Sin dirección registrada' }} · Plan {{ entity.subscription_plan }} ·

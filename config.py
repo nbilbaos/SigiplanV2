@@ -21,9 +21,11 @@ class DevelopmentConfig(Config):
 
 class TestingConfig(Config):
     TESTING = True
+    WTF_CSRF_ENABLED = False
+    MONGODB_CLIENT_CLASS = os.environ.get('MONGODB_TEST_CLIENT_CLASS', 'mongomock.MongoClient')
     MONGODB_SETTINGS = {
-        'db': 'sigiplan_test',
-        'host': 'mongodb://localhost:27017/sigiplan_test'
+        'db': os.environ.get('MONGODB_TEST_DB', 'sigiplan_test'),
+        'host': os.environ.get('MONGODB_TEST_HOST', 'mongodb://localhost')
     }
 
 class ProductionConfig(Config):

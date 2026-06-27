@@ -25,6 +25,17 @@
                  value="{{ data.name }}" required>
         </div>
 
+        <!-- Slug -->
+        <div class="form-group">
+          <label class="form-label" for="slug">Slug de URL</label>
+          <input type="text" id="slug" name="slug" class="form-control"
+                 placeholder="Ej: municipalidad-valparaiso"
+                 value="{{ data.slug }}">
+          <div style="font-size:0.78rem;color:var(--color-text-muted);margin-top:6px;">
+            Si queda vacío, se generará automáticamente desde el nombre.
+          </div>
+        </div>
+
         <!-- RUT / Tax ID -->
         <div class="form-group">
           <label class="form-label" for="tax_id">RUT / Tax ID <span style="color: var(--color-danger);">*</span></label>

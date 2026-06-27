@@ -1,4 +1,9 @@
 from datetime import datetime, timedelta
+from app.utils.tenant import (
+    tenant_funding_sources,
+    tenant_users,
+    visible_tenant_initiatives,
+)
 
 
 STATUS_LABELS = {
@@ -16,23 +21,24 @@ STATUS_ORDER = ['DRAFT', 'IN_PROGRESS', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 
 def _initiative_scope(user, include_deleted=False):
     from app.models.initiative import Initiative
 
-    query = Initiative.objects()
-    if user.role != 'SUPER_ADMIN':
-        query = query.filter(entity=user.entity)
-    if not include_deleted:
-        query = query.filter(is_deleted=False)
-    if user.role == 'TECHNICAL_FORMULATOR':
-        query = query.filter(assigned_formulators=user)
-    return query
+    if user.role == 'SUPER_ADMIN':
+        query = Initiative.objects()
+        if not include_deleted:
+            query = query.filter(is_deleted=False)
+        return query
+    return visible_tenant_initiatives(
+        entity=user.entity,
+        include_deleted=include_deleted,
+        user=user,
+    )
 
 
 def _funding_scope(user):
     from app.models.funding import FundingSource
 
-    query = FundingSource.objects(is_active=True)
-    if user.role != 'SUPER_ADMIN':
-        query = query.filter(entity=user.entity)
-    return query
+    if user.role == 'SUPER_ADMIN':
+        return FundingSource.objects(is_active=True)
+    return tenant_funding_sources(entity=user.entity, is_active=True)
 
 
 def _recent_audit(initiatives, limit=8):
@@ -161,7 +167,7 @@ def build_executive_context(user):
         entities_count = Entity.objects.count()
         entities_active = Entity.objects(is_active=True).count()
     else:
-        users_count = User.objects(entity=user.entity).count()
+        users_count = tenant_users(entity=user.entity).count()
         entities_count = 1
         entities_active = 1 if user.entity and user.entity.is_active else 0
 

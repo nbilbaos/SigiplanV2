@@ -43,6 +43,9 @@
                   <div style="font-size: 0.78rem; color: var(--color-text-muted); margin-top: 2px;">
                     <i class="fa-solid fa-id-card" style="margin-right: 4px; opacity: 0.6;"></i>{{ row.entity.tax_id }}
                   </div>
+                  <div style="font-size: 0.76rem; color: var(--color-text-muted); margin-top: 2px; font-family: monospace;">
+                    /t/{{ row.entity.slug or 'sin-slug' }}
+                  </div>
                 </td>
 
                 <td style="padding: 16px 16px; color: var(--color-text-muted); font-size: 0.85rem; max-width: 200px;">
